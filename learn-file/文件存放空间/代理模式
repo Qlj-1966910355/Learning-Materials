@@ -1,0 +1,235 @@
+代理模式
+	-> 什么是代理模式
+			代理模式是指，为其他对象提供一种代理以控制对这个对象的访问。在某种情况下，一个对象不适合或者不能直接引用另一个对象，而代理对象
+		可以在客户和目标对象之间起到中介作用。
+			换句话说，使用代理对象，是为了在不修改目标对象的基础上，增强主业务逻辑。(目的)
+		客户类真正想要访问的是目标对象，但客户类实际访问的是代理对象。
+			客户类对目标对象的访问是通过访问代理对象实现的。当然，代理类与目标类要实现同一个接口。
+			例如：
+				有A,B,C三个类，A原来可以调用C类的方法，现在因为某种原因C类不允许A类调用其他方法，但B类可以调用C类的方法。
+			A类通过B类调用C类的方法。这里B就是C的代理，A通过代理B访问C。
+			<中介就是代理>
+	-> 代理模式的作用
+		-> 控制目标对象的访问
+		-> 增强功能
+	
+	
+	-> 代理模式的分类
+		-> 静态代理
+		-> 动态代理
+
+
+-> 静态代理
+	静态代理要求目标对象和代理对象实现同一个业务接口。代理对象中的核心功能是由目标对象来完成，代理对象负责增强功能。
+	
+	-> 静态代理的特点
+		// 目标对象与代理对象实现同一个接口
+		// 目标对象必须实现接口
+		// 代理对象在程序运行前就已经存在
+		// 能够灵活的进行目标对象的切换，但无法进行功能的灵活处理(缺点)
+		
+	-> 实现静态代理
+		例：公司活动想要找明星演出，但只能通过助理约到明星，此时公司就是客户端对象，助理就是代理对象，明星就是目标对象。助理安排明星的行程。
+			<注意：各种助理也有很多，但是必须是目标对象的助理，所以助理与明星都要实现同一个接口>
+		步骤：
+			1、定义业务接口
+				例：唱歌业务接口(并未实现)
+					public interface Service {
+						void sing();
+					}
+			2、创建目标对象类实现接口
+				// 目标对象：许嵩，实现业务接口功能，进行唱歌表演
+				public class SuperStarXu implements Service {
+					@Override
+					public void sing() {
+						System.out.println("许嵩正在唱歌！");
+					}
+				}
+			3、创建代理对象类实现接口
+				// 代理对象：完成除唱歌业务功能外的其他业务
+				public class Agent implements Service {
+					@Override
+					public void sing() {
+						System.out.println("预定时间......");
+						System.out.println("预定场地......");
+						
+						// 业务功能必须由目标对象亲自实现
+						SuperStarXu starXu = new SuperStarXu();
+						starXu.sing();
+
+						System.out.println("结算费用......");
+
+					}
+				}
+			4、创建测试程序，用户请许嵩唱歌（test包内测试）
+				public class MyTest {
+					@Test
+					public void testAgent(){
+						// 测试功能
+						// SuperStarXu xu = new SuperStarXu();
+						// xu.sing();
+						// Agent agent = new Agent();
+						// agent.sing();
+
+						// 有接口和实现类，必须使用接口指向实现类(test用户只需要访问助理即可实现业务功能)
+						Service agent = new Agent();
+						agent.sing();
+
+					}
+				}
+	
+	
+	-> 面向接口编程
+		类中的成员变量设计为接口；
+		方法的形参设计为接口；
+		方法的返回值设计为接口；
+		调用时接口指向实现类
+	
+	-> 如何灵活切换目标对象(对上面实现静态代理步骤进行改造)
+		<唱歌接口业务不只有许嵩目标对象可以唱歌，其他歌手也可以使用唱歌接口进行唱歌>
+		
+		-> 添加新的目标对象
+			public class SuperStarZhou implements Service {
+				@Override
+				public void sing() {
+					System.out.println("周杰伦在唱歌！");
+				}
+			}
+		
+		-> 如何代理这个新的目标对象
+			<如果再创建一个新的代理对象，那么静态代理就没有意义，活用接口>
+			// 如何使用一个代理就可以把不同的目标对象代理了(改造Agent目标对象类)
+				给Agent目标对象类中添加一个Service接口类型的成员变量。(类中的成员变量设计为接口)
+				public class Agent implements Service {
+					private Service target;
+
+					public Agent(Service service) {
+						this.target = service;
+					}
+
+					@Override
+					public void sing() {
+						System.out.println("预定时间......");
+						System.out.println("预定场地......");
+						/*
+						// 注意：如果这样实现，则当用户访问代理时，会直接输出两个目标对象，但实际只要一个目标对象(灵活切换目标对象)
+						SuperStarXu starXu = new SuperStarXu();
+						starXu.sing();
+						SuperStarZhou starZhou = new SuperStarZhou();
+						starZhou.sing();
+						*/
+						
+						// 当用户创建Agent对象时，传入一个目标对象，则此处只会访问传入的目标对象sing()方法
+						target.sing();
+
+						System.out.println("结算费用......");
+
+					}
+				}
+				
+		-> 创建测试程序，用户可以请任意歌手唱歌（test包内测试）
+			Service agent = new Agent(new SuperStarZhou());
+			agent.sing();
+			<注意：只会让周杰伦目标对象唱歌，实际上是将目标对象的创建过程给了用户(test)，直接让用户指定>
+
+
+	-> 静态代理的缺点
+		虽然可以灵活的进行目标对象的切换，但无法进行功能的灵活处理。
+		<如果想在功能接口中添加一个其他功能方法，如：void show()。此时只要实现了该接口的类都要实现show()这个抽象方法。
+		并且，某些明星可以唱歌sing()，但实际不会show()，这样就强制让目标对象实现了一些不该实现的方法>
+		
+				
+-> 动态代理
+	动态代理是指代理类对象在程序运行时由JVM根据反射机制动态生成。动态代理不需要代理类的.java源文件。
+	动态代理其实就是jdk运行期间，动态创建class字节码并加载到jvm中。
+	动态代理的实现有两种方式：JDK动态代理和CGLIB动态代理
+	
+	-> JDK动态代理
+		JDK动态代理是基于Java的反射机制实现的。使用JDK中接口和类实现代理对象的动态创建。
+		JDK的动态代理要求目标对象必须实现接口，而代理对象不必实现业务接口，这是java设计上的要求。
+		从jdk13，java通过java.lang.reflect包提供三个类和接口支持代理模式，他们分别：Proxy、Method、InvocationHandler
+		
+		-> JDK动态代理特点
+			// 目标对象必须实现业务接口
+			// 代理对象不需要实现业务接口
+			// 动态代理的对象在程序运行前不存在，在程序运行时动态的在内存中构建
+			// 动态代理灵活的进行业务功能的切换
+			// 本类中的方法(非接口方法)不能被代理
+		-> JDK动态代理使用的类与接口
+			-> Proxy类
+				// 生成动态代理对象
+				public static Object newProxyInstance(ClassLoader loader,		// 类加载器
+													  Class<?>[] interfaces,	// 目标对象实现的所有接口
+													  InvocationHandler h) 		// 类似Agent功能，代理的功能和对象的业务功能调用
+													  throws IllegalArgumentException
+														// InvocationHandler是一个接口，传参时需要传的是实现接口的类(匿名内部类实现)
+				// 专门用来生成动态代理对象(静态方法)
+			-> Method类
+				反射目标对象的方法，实现方法调用。
+				method对象接住正在调用的目标方法
+			-> InvocationHandler接口
+				实现代理和业务功能，调用时使用匿名内部类实现
+				
+		-> 代理工厂代码实现
+			public class ProxyFactory {
+				// 类中成员变量设计为接口，目标对象
+				Service target;
+
+				// 传入目标对象
+				public ProxyFactory(Service target) {
+					this.target = target;
+				}
+
+				// 返回动态代理对象
+				public Object getAgent(){
+					// 这个返回值是动态代理对象
+					return Proxy.newProxyInstance(
+							// ClassLoader loader       类加载器，完成目标对象的加载
+							target.getClass().getClassLoader(),
+							// Class<?>[] interfaces,   目标对象实现的所有接口
+							target.getClass().getInterfaces(),
+							// InvocationHandler h      实现代理功能的接口，传入匿名内部类
+							new InvocationHandler() {
+								@Override
+								public Object invoke(
+										// 创建代理对象
+										Object proxy,
+										// mothod就是目标方法sing()、show()...
+										Method method,
+										// 目标方法参数
+										Object[] args
+								) throws Throwable {
+									// 代理功能
+									System.out.println("预定时间......");
+									System.out.println("预定场地......");
+
+									// 主业务功能实现
+									Object obj = method.invoke(target, args);
+
+									// 代理功能
+									System.out.println("结算费用......");
+
+									// 目标方法的返回值
+									return obj;
+								}
+							}
+					);
+				}
+			}
+
+			
+			
+	-> CGLib动态代理
+		想要功能扩，但目标对象没有实现接口，怎样扩展功能？
+			解决方法：子类的方式
+				Class subclass extends UserDao{}
+				以子类的方式实现(cglib代理)，在内存中构建一个子类对象从而实现对目标对象功能的扩。
+		
+		-> CGLib的特点
+			1、jdk动态代理有一个限制，就是使用动态代理的目标对象必须实现一个或多个接口。如果想代理没有实现接口的类，就要使用CGLib实现。
+			2、CGLib是一个强大的高性能代码生成包，它可以在运行期扩展java类与实现java接口。它广泛的被许多AOP框架使用，
+				例：Spring AOP和dynaop，为他们提供方法的interception
+			3、CGLib包的底层是通过使用一个小而快的字节码处理框架ASM，来字节码并生成新的类。
+				不鼓励直接使用ASM，因为它要求必须对jvm内部结构包括class文件的格式和指令集都很熟悉
+			
+			

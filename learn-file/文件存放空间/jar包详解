@@ -1,0 +1,54 @@
+-> idea生成可执行jar
+	1、新建项目，编写功能类实现，编写main方法；(注意需要使用第三方jar包时，要提前导入到项目中)
+	2、创建jar包打包规则
+		-> 打开项目结构(Project Structure)
+		-> 点击中间的“+”号，选择JAR--->From modules with dependencies
+		-> Main class右侧单击文件夹图标，选择自己编写main方法的类(可直接使用类名搜索)
+			extract to the target Jar：表示将依赖的三方jar包打包到目标jar包里面，通过这种方式打包的jar包，最终只有一个jar文件；
+			copy to the output directory and link via manifest：将依赖的jar包拷贝到某个路径下，并且通过mainifest进行链接，
+																这种情况下依赖的三方jar包会以独立jar包的方式存在；
+			Directry for META-INF/MAIFEST.MF：指定mainifest文件生成路径，如果上面选择了copy to the output directory and link via manifest，
+											  那么这个文件要确保和生成的jar包放在同一个目录下，否则会出现生成的jar包引用不到第三方jar包的
+											  方式，这里将第三方jar包打包到目标jar包中，不存在这个问题，所以使用默认路径即可。(千万不能有中文)
+		-> 点击OK后，记住Output directory的路径，也可以自定义路径;
+			例：D:\javascript\testJar\out\artifacts\jar01_jar
+		-> 点击OK,点击Build--->Build Artifacts(生成jar包)
+			Build Artifacts：在下拉框内选择想要打包的项目，进行对应的：build、Rebuild、Clean、Edit等操作
+				Build：第一次生成jar包时，选择Build生成jar包
+				Rebuild：后面修改了程序后，只需要执行Rebuild即可。
+	3、运行jar包
+		在cmd命令行中：java -jar jar01.jar 
+			(注意：cmd在jar包所在目录下打开；也可以将jar包复制到其他文件夹下运行)
+	4、新建.bat文件，双击执行jar包(批处理文件)
+		直接将java -jar jar01.jar写在bat文件中，保存。双击bat文件或cmd中执行bat文件可执行jar包。
+
+idea中Build工具栏：
+	Build Project：对选定的目标（Project），编译那些被修改的文件；
+
+	Build Module：对选定的目标（Module），进行强制性编译，不管目标是否是被修改过。
+
+	Recompile：对选定的目标（Java 类文件），进行强制性编译，不管目标是否是被修改过。
+
+	Rebuild Project：对选定的目标（Project），进行强制性编译，不管目标是否是被修改过。由于 Rebuild 的目标只有 Project，所以 Rebuild 每次花的时间会比较长。
+
+	Build Artifacts：在下拉框内选择想要打包的项目，进行对应的：build、Rebuild、Clean、Edit等操作
+
+
+	
+		
+
+java打jar包的几种方式详解
+	-> 
+	
+	
+
+
+
+	
+	
+	
+	
+	
+	
+	
+	

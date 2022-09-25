@@ -1,0 +1,15 @@
+JAVA科学计算包相关方法
+	-> cumulativeProbability(double x)
+		// 返回x值对应的p值，按照NormalDistribution对象
+	-> cumulativeProbability(double x0, double x1)
+		// 返回x0-x1对应的p值
+	-> density(double x)
+		// 返回指定正态分布概率密度函数x对应的y值
+	-> getNumericalMean()
+		// 返回指定正态分布对象的分布平均值数值
+	-> getNumericalVariance()
+		// 返回指定正态分布对象的分布方差
+	-> inverseCumulativeProbability(double p)
+		// 返回指定正态分布对象中p值对应的分位数
+		probability(double x)
+	

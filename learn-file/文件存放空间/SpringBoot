@@ -1,0 +1,1300 @@
+SpringBoot<约定大于配置>
+
+
+-> 简介
+	<自动装配>
+
+
+
+
+-> 项目搭建
+	-> 先创建一个空的项目
+	-> 在项目结构中添加一个Module
+	-> 选择Spring Initializr 点击下一步
+	-> 配置Group、Artifact、java version
+			<groupId>com.sg</groupId>
+			<artifactId>hellospring</artifactId>
+		Description：添加项目描述
+		Package：com.sg	可以删掉项目名hellospring
+	-> 下一步，勾选Web中的Spring Web 
+		(也可以再将Developer Tools 中的Spring Boot DevTools勾选，实现热部署)
+			热部署：在项目正在运行的时候修改代码, 却不需要重新启动项目。
+	-> 一直下一步创建成功。
+	
+	-> 可以将项目中多余文件进行删除
+		例：.mvn文件夹、.gitignore、HELP.md、mvnw、mvnw.cmd
+
+
+
+-> pom.xml
+	核心依赖在父工程中。
+	<!--父项目-->
+		<parent>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-parent</artifactId>
+			<version>2.7.3</version>
+			<relativePath/> <!-- 从存储库中查找父项 -->
+		</parent>
+	// 在引入一些SpringBoot的依赖时，不需要指定版本<version>，因为有这个父项目版本仓库。
+	
+	-> 查看版本仓库
+		进入：‘spring-boot-starter-parent’ --> ‘spring-boot-dependencies’
+	
+
+	-> 启动器
+			就是springboot的启动场景，所有springboot的依赖都是以spring-boot-starter开头，springboot将所有功能场景都变成了一个个启动器，
+		想要使用那个功能，就导入哪个starter启动器即可。
+			<dependency>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-starter-...</artifactId>
+			</dependency>
+		// 例：spring-boot-starter-web，这个启动器会自动导入web环境的所有依赖。
+
+
+-> 主程序
+	位置：src-->main-->java-->包名-->Springboot001Application (与controller包同级)
+	springboot搭建成功会生成一个‘项目名+Application’类。
+	例：
+		@SpringBootApplication
+		public class Springboot001Application {
+
+			public static void main(String[] args) {
+				SpringApplication.run(Springboot001Application.class, args);
+			}
+
+		}
+		
+	1、@SpringBootApplication
+		标注这个类是一个springboot的应用，启动类下的所有资源被导入。
+		-> @SpringBootConfiguration			springboot配置
+		-> @EnableAutoConfiguration			自动导入包配置
+		
+	自动装配原理：
+		1、springboot在启动的时候，从类路径下/META-INF/spring.factories获取指定的值；
+		2、将这些自动配置的类导入容器，自动配置就会生效，进行自动配置；
+		3、之前需要进行配置的东西，springboot帮我们做了；
+		4、整合javaEE，解决方案和自动配置的东西都在spring-boot-autoconfigure-2.7.3.jar这个包下
+		5、它会将所有需要导入的组件，以类名的方式返回，这些组件被添加到容器；
+		6、容器中也会存在非常多的xxxautoConfiguration的文件(@Bean)，就是这些类给容器中导入了这些场景需要的所有组件，并进行配置，@Configuration,javaConfig
+		7、有了自动配置类，免去了手动配置文件的工作。
+		
+	// 结论：springboot所有的自动配置都在启动的时候扫描并加载，类路径下/META-INF/spring.factories所有的自动配置类都在这里面，但是里面的配置类
+			 不一定生效，要判断条件是否成立，只要导入对应的start，就会有对应的启动器，有了启动器自动装配就会生效，配置成功。
+
+	2、SpringApplication.run
+		将springboot应用启动。
+		// 推断应用的类型是普通的项目还是Web项目
+		// 查找并加载所有可用初始化器，设置到initializers属性中
+		// 找出所有的应用程序监听器，设置到listeners属性中
+		// 推断并设置main方法的定义类，找到运行的主类
+	
+	
+-> SpringBoot配置文件
+	-> 配置文件的作用
+		修改SpringBoot自动配置的默认值，因为SpringBoot在底层都给我们自动配置了。
+		yaml配置完成后可以注入到配置类中。
+
+	-> application.properties
+		SpringBoot的配置文件(配置内容很多，可以在官网中找)
+		
+		官方推荐的SpringBoot配置文件是.yaml文件
+	
+	-> application.yaml
+		这个文件在pom文件中的可以看到spring-boot-starter-parent中可以看到
+		        <includes>
+				  <include>**/application*.yml</include>
+				  <include>**/application*.yaml</include>
+				  <include>**/application*.properties</include>
+				</includes>
+		除了可以导出properties文件，还可以是yml、yaml结尾的文件。
+		
+		-> 语法结构
+			-> application.properties
+				语法结构：key=value
+				例：
+					# 更改项目的端口号
+					server.port=8081
+			-> application.yaml
+				语法结构：key:空格 value
+				例：
+					server:
+						port: 8081
+	
+		-> yaml配置文件常见写法：
+			#普通的key-value
+			name: qlj
+			
+			#对象
+			student:
+				name: qlj
+				age: 23
+			
+			#对象行内写法
+			student: {name: qlj,age: 23}
+			
+			#数组
+			arrayname:
+				- cat
+				- dog
+				- pig
+			
+			arrayname: [cat,dog,pig]
+		
+	-> 使用yaml配置文件注入实体类属性
+		不使用yaml配置文件注入：
+			使用@value("qlj")进行配置
+		
+		使用yaml文件配置：
+			1、首先创建一个实体类
+				@Component			// 由Spring进行管理
+				public class Student {
+					private String name;
+					private Integer age;
+					private Boolean happy;
+					private Date riqi;
+					private Map<String, Object> maps;
+					private List<String> lst;
+					private Dog dog;
+					......
+				}
+				
+				@Component
+				public class Dog {
+					private String name;
+					private Integer age;
+					......
+				}
+			
+			2、在yaml中写配置信息
+				#与实体类属性名称必须一致
+				student:
+				  name: qlj
+				  age: 23
+				  happy: false
+				  riqi: 2022/08/30
+				  maps: {k1: v1,k2: v2}
+				  lst: [a,b,c]
+				  dog:
+					name: ladeng
+					age: 10
+				
+				yaml配置文件的值可以使用Spring的EL表达式：
+					例：name:qlj${random.uuid}							拼接一个自动生成的id
+						age: ${random.int}
+						dog:
+							name: ${student.hello:hello}_ladeng			括号中是一个三目运算(实现默认值)，判断后与括号外的字符拼接
+				
+
+			3、将yaml配置信息注入到实体类中
+				在实体类上添加注解：
+					@ConfigurationProperties(prefix = "student")
+				
+				作用：将配置文件中的每个属性值，映射到当前类(组件)中；告诉springboot将本类中的所有属性和配置文件中相关的配置进行绑定。
+				参数：prefix = "student" 将配置文件student中的信息对应到当前类属性上。
+				
+				注意：在配置该注解时idea编辑框顶部会弹出Open Documentation红色提示框，原因是因为缺少当前注解的jar包，点击Open...
+					  直接会在网页上找到对应的依赖信息，复制到pom文件中即可。实际上不导入依赖运行不会出错。
+						<dependency>
+							<groupId>org.springframework.boot</groupId>
+							<artifactId>spring-boot-configuration-processor</artifactId>
+							<optional>true</optional>
+						</dependency>
+				
+			4、测试
+				@SpringBootTest
+				class Springboot001ApplicationTests {
+					@Autowired
+					private Student student;
+					@Test
+					void contextLoads() {
+						System.out.println(student);
+					}
+
+				}
+			
+			输出：{"Student":{"name":"qlj","age":23,"happy":false,"riqi":"Tue Aug 30 00:00:00 CST 2022","maps":{k1=v1, k2=v2},"lst":[a, b, c],"dog":{"Dog":{"name":"ladeng","age":10}}}}
+		
+	-> 众所周知，springboot中可以有多个配置文件
+		-> 如何加载指定的配置文件
+			@PropertySource(value = "classPath:data.properties")
+			指定将data.properties配置文件中的信息配置到当前类中。
+			
+			注意：properties配置文件就不能自动将配置信息配置到对应的属性上。
+			必须使用@vlaue("配置文件的key")，括号中也可以使用Spring的EL表达式：@vlaue("${name}")
+
+	-> classpath指的是什么路径
+		classpath顾名思义，是编译之后项目的路径，而不是对源程序的路径描述。但是它与源程序的一些路径是相互对应的，存在映射关系
+		
+		classpath 等价于 main/java + main/resources + 第三方jar包的根目录。
+
+
+	-> JS303校验
+		场景：当使用yaml输入值时，会在注入过程中进行数据校验，如果不符合校验格式则注入失败报错。
+		
+		使用：
+			在被注入的类上(与ConfigurationProperties同级)添加@Validated注解，然后在对应的属性上添加校验规范格式(例：@Email 数据必须是邮箱格式)
+			
+		其他校验：
+			@Null
+			@NotNull
+			...
+			网上查
+	
+-> SpringBoot配置类
+	配置类创建位置：
+		-> file:./config/				// file:指项目文件的根目录下，与src同级
+		-> file:./
+		-> classpath:/config/			// classpath 等价于 main/java + main/resources + 第三方jar包的根目录
+		-> classpath:/
+		
+		配置文件的执行顺序：由上到下优先级降低。
+		
+	-> 配置文件环境切换
+		实际开发中开发阶段、测试阶段等阶段的端口号等信息环境都不相同，需要进行切换使用。
+		// 使用properties配置文件时
+			需要写三个配置文件进行切换使用。
+				在application.properties中：
+					配置内容：spring.profiles.active=dev		// dev是因为有一个配置文件的名称为application_dev.properties
+	
+		// 使用yaml文件配置：
+			只需要写一个配置文件application.properties。<也可以分文件写>
+			配置内容：
+				server:
+					port: 8080
+				spring:
+					profiles:
+						active: dev
+				
+				---
+				server:
+					port: 8081
+				spring:
+					profiles:dev
+			
+				---				
+				server:
+					port: 8082
+				spring:
+					profiles:test
+
+			// 使用---隔开。不在第一个配置中写spring.profiles.active时默认执行8080端口，如果在里面写了指定配置为dev，则会启动对应端口。
+	
+	-> 配置类自动装配原理：
+		1、SpringBoot启动会加载大量的自动配置类
+		2、我们看我们需要的功能有没有在SpringBoot默认写好的自动配置类当中
+		3、我们再来看这个自动配置类中到底配置了哪些组件；(只要我们要用的组件存在于其中，我们就不需要手动进行配置了)
+		4、给容器中自动配置类添加组件的时候，会从properties类中获取某些属性。我们只需要在配置文件中指定这些属性的值即可。
+			xxxAutoConfigurartion：自动配置类；给容器中添加组件
+			xxxProperties：封装配置文件中的相关属性
+
+
+-> web开发
+	
+	-> 静态资源导入
+		源码位置：
+			package org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration;
+				addResourceHandlers()方法
+	
+		静态资源放置位置：
+			classpath:指类路径下，main/java或main/resources目录下以及第三方包的根路径
+			private static final String[] CLASSPATH_RESOURCE_LOCATIONS = { "classpath:/META-INF/resources/",
+				"classpath:/resources/", "classpath:/static/", "classpath:/public/" };
+		
+			/META-INF/resources/ ：例：classpath:/META-INF/resources/webjars/**"		<指第三方jar包的一个文件路径>
+		
+		优先级：resources> static(默认)> public
+		
+		自定义目录：spring.mvc.static-path-pattern=/hello/,classpath:/qlj/			// springboot指定的目录就会失效
+	
+	
+	-> web项目中的首页定制
+		源码位置：
+			org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration;
+				getWelcomePage()
+				
+		默认加载的是index.html命名的静态资源文件，并且放在任一静态资源目录下。
+		
+		如何使用controller资源加载首页？
+			首先要导入thymeleaf模板引擎依赖(视图解析器)，否则会直接返回return的字符串。
+			在springmvc中我们使用视图解析器进行拼接进行访问静态资源，而在ajax请求时屏蔽掉视图解析器，让controller直接返回字符串(json)。
+				@RestController						// 注意@RestController注解只允许返回字符串，不允许访问静态资源
+				public class IndexController {
+					@RequestMapping("/a")
+					public String getIndex(){
+						return "index";				// 没有视图解析器时，浏览器页面只返回‘index’字符，无法访问项目中的index.html资源
+					}
+				}
+			
+			// 在templates文件夹内的静态资源只能使用controller资源进行加载访问，即使用视图解析器拼接后访问。
+			
+			
+		如何在web的<title>上配置静态图标?
+			直接将图片名称设置为favicon.ico，将资源放在static目录内即可。(注意清除浏览器cookie)
+			<低版本的springboot需要关闭spring.mvc.favicon.enabled=false>
+		
+	
+	-> jsp写进springboot，模板引擎：Thymeleaf
+		-> 什么是模板引擎？
+			<以jsp为例，jsp就是一个模板引擎>
+				模板引擎的作用就是我们来写一个页面模板(html模板)，html脚本中有些值必须动态展示(例：数据表展示)，用表达式代替(例：el表达式)。
+			而这些动态数据值就是我们在后台封装一些数据。然后把这个模板和这个数据交给我们模板引擎，模板引擎按照数据将模板中的表达式进行解析，
+			然后最终将后台的数据处理填充到指定表达式位置上。
+	
+		-> 导入Thymeleaf依赖。
+			1、在创建SpringBoot时进行导入(与热部署勾选方法一样)，注意：springboot版本管理的版本可能很低，所以注意版本问题，尽量3版本以上。
+				
+			2、官网查找依赖坐标
+				官网：https://www.thymeleaf.org
+				github:https://github.com/thymeleaf/thymeleaf
+				springboot：https://docs.spring.io/spring-boot/docs/2.1.6.RELEASE/reference/htmlsingle/#using-boot-starter
+				
+					<!--Thymeleaf(版本由springboot版本库提供)-->
+					<dependency>
+						<groupId>org.thymeleaf</groupId>
+						<artifactId>thymeleaf-spring5</artifactId>
+					</dependency>
+					<dependency>
+						<groupId>org.thymeleaf.extras</groupId>
+						<artifactId>thymeleaf-extras-java8time</artifactId>
+					</dependency>
+					
+					// 或者高版本直接导入starter
+					<dependency>
+						<groupId>org.springframework.boot</groupId>
+						<artifactId>spring-boot-starter-thymeleaf</artifactId>
+					</dependency>
+				
+			// 如果springboot中版本库版本较低，则手动在<properties>中指定版本。
+			
+			
+			-> 如何使用Thymeleaf
+				源码位置：
+					org.springframework.boot.autoconfigure.thymeleaf.ThymeleafProperties;
+					
+				注意：
+					ThymeleafProperties类中的两个属性：
+						public static final String DEFAULT_PREFIX = "classpath:/templates/";
+						public static final String DEFAULT_SUFFIX = ".html";
+					
+					实际上就是springmvc中配置的视图解析器的前后缀。
+				
+				即，需要controller访问的静态资源(默认情况下)必须放在templates目录内，并且是html资源。
+				***************** 不能使用@RestController *****************
+			
+			-> Thymeleaf中的表达式怎样写？
+				https://www.thymeleaf.org/doc/tutorials/3.0/usingthymeleaf.html#expressions-on-selections-asterisk-syntax			docs文档
+			
+			
+				
+	-> 装配扩展SpringMVC
+		官网：https://docs.spring.io/spring-boot/docs/2.1.6.RELEASE/reference/html/boot-features-developing-web-applications.html
+		
+			如果你想保留Spring Boot MVC 特性并且你想添加额外的MVC配置（拦截器、格式化程序、视图控制器和其他特性），
+		你可以添加你自己的配置类实现WebMvcConfigurer接口，并添加@Configuration注解 ，但不要添加@EnableWebMvc。
+			@EnableWebMvc：如果在类上添加了该注解，则springmvc会完全由用户控制
+				源码：
+					在springboot的WebMvcAutoConfiguration自动装载类中存在：
+							@ConditionalOnMissingBean(WebMvcConfigurationSupport.class)	// 当WebMvcConfigurationSupport不存在时才会自动装配
+					而@EnableWebMvc注解import的DelegatingWebMvcConfiguration类实际继承的是WebMvcConfigurationSupport类，所以在执行中就会存在
+					这个类的Bean，所以springboot就不会进行装配。					
+					
+		案例：
+			// 如果想要DIY定制一些功能，只要写下面的组件，然后交给springboot，springboot会进行自动装配
+			//扩展springmvc
+			@Configuration
+			// @EnableWebMvc
+			public class MyMvcConfig implements WebMvcConfigurer {
+				// 注意：这个视图解析器会经过DispatcherServlet前置控制器进行处理
+				// ViewResolver 实现了视图解析器接口的类，我们可以把它看做视图解析器
+				@Bean
+				public ViewResolver myViewResolver(){
+					return new MyViewResolver();
+				}
+
+				// 自定义一个视图解析器MyViewResolver
+				public static class MyViewResolver implements ViewResolver{
+					@Override
+					public View resolveViewName(String viewName, Locale locale) throws Exception {
+						return null;
+					}
+				}
+			}
+			
+	-> 将一个请求转到某个页面(默认加载index页面配置)
+		添加一个配置类
+		@Configuration
+		public class MyMvcConfig implements WebMvcConfigurer {
+
+			// 将一个请求转到某个页面
+			@Override
+			public void addViewControllers(ViewControllerRegistry registry) {
+				registry.addViewController("/").setViewName("index");
+				registry.addViewController("/index.html").setViewName("index");
+			}
+		}
+		
+		注意：该类中的配置信息在服务启动时就已经加载。
+
+			
+	-> 增删改查
+		lombok 实体类使用注释创建		// 注意下载插件
+		
+		-> pojo层
+			// 部门表
+				@Data
+				@AllArgsConstructor
+				@NoArgsConstructor
+				public class Dept {
+					private Integer id;
+					private String deptName;
+
+				}
+			// 员工表
+				@Data
+				@NoArgsConstructor
+				@AllArgsConstructor
+				public class Employee {
+					private Integer id;
+					private String lastName;
+					private String email;
+					private Integer gender; // 0：女  1：男
+
+					private Dept dept;
+					private Date date;
+				}
+				
+		-> dao层(数据层)
+			模拟数据库数据
+			// 部门表
+				@Repository
+				public class DeptDao {
+					// 模拟数据库数据
+					private static Map<Integer, Dept> depts = null;
+					static {
+						depts = new HashMap<>();
+
+						depts.put(101, new Dept(101,"数据组"));
+						depts.put(102, new Dept(102,"MES组"));
+						depts.put(103, new Dept(103,"应用组"));
+						depts.put(104, new Dept(104,"服务组"));
+						depts.put(105, new Dept(105,"网络组"));
+						depts.put(106, new Dept(106,"开发组"));
+						depts.put(107, new Dept(107,"管理组"));
+
+					}
+
+					// 数据库操作
+					// 获取部门信息
+					public Collection<Dept> getDepts(){
+						return depts.values();
+					}
+
+					// 通过id得到部门
+					public Dept getDept(Integer id){
+						return depts.get(id);
+					}
+					
+				}
+				
+			// 员工表
+				@Repository
+				public class EmployeeDao {
+					// 模拟数据库数据
+					private static Map<Integer, Employee> employees = null;
+					// 员工所属部门
+					@Autowired
+					private DeptDao deptDao;
+
+					static {
+						employees = new HashMap<>();
+
+						employees.put(1001, new Employee(1001, "qlj", "17100305107@qq.com", 1, new Dept(101,"数据组"), new Date()));
+						employees.put(1002, new Employee(1002, "wzx", "17100305117@qq.com", 0, new Dept(102,"MES组"), new Date()));
+						employees.put(1003, new Employee(1003, "zmq", "17100302107@qq.com", 0, new Dept(103,"应用组"), new Date()));
+						employees.put(1004, new Employee(1004, "ls", "171003035107@qq.com", 1, new Dept(104,"服务组"), new Date()));
+						employees.put(1005, new Employee(1005, "zy", "17100315117@qq.com", 0, new Dept(105,"网络组"), new Date()));
+						employees.put(1006, new Employee(1006, "lwx", "17103305107@qq.com", 1, new Dept(106,"开发组"), new Date()));
+						employees.put(1007, new Employee(1007, "xyq", "17100301147@qq.com", 1, new Dept(107,"管理组"), new Date()));
+					}
+
+					// 主键自增
+					private static Integer intid = 1001;
+
+					// 增加员工
+					public void save(Employee employee){
+						// 自增id
+						if (employee.getId() == null) {
+							employee.setId(intid ++);
+						}
+						// 从部门数据库中获取部门信息并插入员工信息中
+						employee.setDept(deptDao.getDept(employee.getDept().getId()));
+
+						employees.put(employee.getId(), employee);
+					}
+
+					// 获取全部员工
+					public Collection<Employee> getEmployees(){
+						return employees.values();
+					}
+
+					// 通过id查询员工
+					public Employee getEmployee(Integer id){
+						return employees.get(id);
+					}
+
+					// 删除员工
+					public void delete(Integer id){
+						employees.remove(id);
+					}
+
+				}
+			
+		
+		-> html使用Thymeleaf进行修改
+			注意：在不修改html前，想要访问index.html资源时，会加载不到js/css等资源，导致html页面没有任何渲染样式。
+			
+			修改所有导入的css样式与js等标签。
+				例：<link th:href="@{/css/bootstrap.min.css}" rel="stylesheet">
+				// 图片的src连接也需要修改
+
+	
+	-> 国际化(中英文切换)
+		// classpath路径内添加'i18n'目录。<一般在resources目录下直接新建>
+		// 在i18n下创建一个'login.properties'配置文件<配置文件名需要一致>
+		// 继续创建资源：login_en_US.properties。注意此时目录会发生变化为‘Resource Bundle 'login'’。
+		// 在Resource Bundle 'login'目录上右键‘新建’-->‘Add Property ...’ --> 点击‘+’ --> 输入：zh_CN 即可创建。
+		// 点击编辑框下方'Resource Bundle'，编辑配置信息。<可以同时编辑三个配置文件>
+			例：点击‘+’ --> login.password --> 编辑三个编辑框，将英文进行翻译即可<定点翻译>
+			注意：设置项目文件编码必须全部是UTF-8。
+		
+		-> 使用Thymeleaf将配置信息直接加载到html中
+			例：<h1 class="h3 mb-3 font-weight-normal" th:text="#{login.tip}">Please sign in</h1>
+				<input type="text" class="form-control" th:placeholder="#{login.username}" required="" autofocus="">
+				<input type="password" class="form-control" th:placeholder="#{login.password}" required="">
+				<button class="btn btn-lg btn-primary btn-block" type="submit"  th:text="#{login.sign}">Sign in</button>
+		
+		-> 前端如何切换中英文？
+			<a class="btn btn-sm" th:href="@{/index.html(l='zh_CN')}">中文</a>
+			<a class="btn btn-sm" th:href="@{/index.html(l='en_US')}">English</a>
+			
+			发送切换请求，拦截请求并判断请求参数进行响应。
+			
+			-> 在config中创建MyLocalResolver实现LocaleResolver接口<并非配置类>
+			
+				/**
+				 *  LocaleResolver：解析Request中的语言标志参数或者head中的Accept-Language参数， 并将解析后的参数保存到指定的域中。
+				 */
+				// 在国际化时使用的配置
+				public class MyLocalResolver implements LocaleResolver {
+					//解析请求
+					@Override
+					public Locale resolveLocale(HttpServletRequest request) {
+						// 获取请求中的语言参数
+						String language = request.getParameter("l");
+
+						Locale locale = Locale.getDefault();        // 没有就使用默认的，默认中文
+
+						// 如果请求携带国际化的参数，那么就要判断
+						if (!StringUtils.isEmpty(language)) {
+							String[] split = language.split("_");
+							// 国家、地区
+							locale = new Locale(split[0], split[1]);
+
+						}
+						return locale;
+					}
+
+					@Override
+					public void setLocale(HttpServletRequest request, HttpServletResponse response, Locale locale) {
+
+					}
+				}
+
+			-> 在配置类中让国际化组件生效
+				@Configuration
+				public class MyMvcConfig implements WebMvcConfigurer {
+
+					// 自定义的国际化组件生效
+					@Bean
+					public LocaleResolver localeResolver(){
+						return new MyLocalResolver();
+					}
+				}
+		
+		
+	
+	
+	-> 拦截器
+		详解可看Spring文档中。
+			/**
+			 * 登录拦截器
+			 */
+			public class LoginHandlerInterceptor implements HandlerInterceptor {
+				@Override
+				public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+
+					// 登录成功后应该有用户的session
+					Object session = request.getSession().getAttribute("userSession");
+
+					if (session == null) {
+						// 没有登录
+						request.setAttribute("msg", "没有权限，请先登录！");
+						// 请求转发
+						request.getRequestDispatcher("/index.html").forward(request, response);
+						return false;
+					}else {
+						return true;
+					}
+				}
+			}
+
+----------------------------------------------------------------------------------------------------------------------------------------
+day2-<springboot003>
+
+<创建时勾选：sql：jdbc api 、mysql driver 、spring web>
+
+-> 使用JdbcTemplate实现jdbc 
+	SpringBoot默认数据源：class com.zaxxer.hikari.HikariDataSource
+	-> 配置<yaml>
+		spring:
+		  datasource:
+			#时区&编码
+			url: jdbc:mysql://localhost:3306/qlj_sql?serverTimezone=UTC&useUnicode=true&characterEncoding=utf-8
+			username: root
+			password: 123456
+			driver-class-name: com.mysql.cj.jdbc.Driver
+
+	-> 测试
+		@SpringBootTest
+		class Springboot003ApplicationTests {
+			@Autowired
+			DataSource dataSource;
+			@Test
+			void contextLoads() throws SQLException {
+				// 查看默认数据源：class com.zaxxer.hikari.HikariDataSource
+				System.out.println(dataSource.getClass());
+
+				// 获取数据库连接
+				Connection conn = dataSource.getConnection();
+				System.out.println(conn);
+
+				// 关闭数据库
+				conn.close();
+			}
+		}
+
+	-> 实现jdbc增删改查
+		/**
+		 * 使用JdbcTemplate实现jdbc
+		 *  	@Autowired
+		 *      DataSource dataSource;
+		 *  SpringBoot默认数据源：class com.zaxxer.hikari.HikariDataSource
+		 */
+		@RestController
+		public class JDBCController {
+			@Autowired
+			JdbcTemplate jdbcTemplate;
+
+			// 查询
+			@GetMapping("/user/list")
+			public List<Map<String,Object>> userList(){
+				String sql = "select * from users";
+				List<Map<String, Object>> mapList = jdbcTemplate.queryForList(sql);
+				return mapList;
+			}
+
+			// 新增
+			@GetMapping("/user/insert")
+			public String addUser(){
+				String sql = "insert into users values(10, '老九', 'lj', '123456')";
+				jdbcTemplate.update(sql);
+				return "success Insert！";
+			}
+
+			// 修改
+			@GetMapping("/user/update/{id}")
+			public String updateUser(@PathVariable("id") int id){
+				String sql = "update users set password=? where id="+id;
+				// 传值
+				jdbcTemplate.update(sql,"1111");
+				return "success Update！";
+			}
+
+			// 删除
+			@GetMapping("/user/delete/{id}")
+			public String deleteUser(@PathVariable("id") int id) {
+				String sql = "delete from users where id=" + id;
+				jdbcTemplate.update(sql);
+				return "success Delete！";
+			}
+
+-----------------------------
+
+-> 整合Druid数据源
+	
+	-> 添加依赖
+		<!-- druid数据源 -->
+		<dependency>
+			<groupId>com.alibaba</groupId>
+			<artifactId>druid</artifactId>
+			<version>1.2.8</version>
+		</dependency>
+        <!--log4j日志管理：还用druid时需要配置log4j-->
+        <dependency>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+            <version>1.2.12</version>
+        </dependency>
+
+	-> 修改yaml配置文件
+		spring:
+			datasource:
+				#时区&编码
+				url: jdbc:mysql://localhost:3306/qlj_sql?serverTimezone=UTC&useUnicode=true&characterEncoding=utf-8
+				username: root
+				password: 123456
+				driver-class-name: com.mysql.cj.jdbc.Driver
+				#切换druid数据源
+				type: com.alibaba.druid.pool.DruidDataSource
+
+
+				#springboot 默认不注入这些属性，需要手动绑定
+				#druid 数据源专有配置
+				initialSize: 5
+				minIdle: 5
+				maxActive: 20
+				maxWait: 60000
+				timeBetweenEvictionRunsMillis: 60000
+				minEvictableIdleTimeMillis: 300000
+				validationQuery: SELECT 1 FROM DUAL
+				testWhileIdle: true
+				testOnBorrow: false
+				testOnReturn: false
+				poolPreparedStatements: true
+
+				#配置监控统计拦截的filters，stat:监控统计、log4j：日志记录、wall：防御sql注入
+				#如果允许时报错  java.lang.ClassNotFoundException: org.apache.log4j.Priority
+				#则导入 log4j 依赖即可，Maven 地址：https://mvnrepository.com/artifact/log4j/log4j
+				filters: stat,wall,log4j
+				maxPoolPreparedStatementPerConnectionSize: 20
+				useGlobalDataSourceStat: true
+				connectionProperties: druid.stat.mergeSql=true;druid.stat.slowSqlMillis=500
+	
+	-> 添加配置类
+		
+			@Configuration
+			public class DruidConfig {
+
+				@ConfigurationProperties(prefix = "spring.datasource")
+				@Bean
+				public DataSource druidDataSource(){
+					return new DruidDataSource();
+				}
+
+				// 后台监控：相当于web.xml
+				@Bean
+				public ServletRegistrationBean statViewServlet(){
+					ServletRegistrationBean<StatViewServlet> bean =
+							new ServletRegistrationBean<>(new StatViewServlet(), "/druid/*");
+
+					HashMap<String, String> initParameters = new HashMap<>();
+					// 增加配置
+					initParameters.put("loginUsername", "admin");   // 登录的key是固定的，loginUsername，loginPassword
+					initParameters.put("loginPassword", "123456");
+
+					// 允许哪些人访问
+					initParameters.put("allow","");         // 空，所有人可以访问
+					// initParameters.put("allow","localhost");        // 本机允许访问
+
+					// 禁止谁访问
+					// initParameters.put("qlj", "10.88.5.14");
+
+					bean.setInitParameters(initParameters);     // 设置初始化参数
+					return bean;
+				}
+				
+				// filter
+				@Bean
+				public FilterRegistrationBean webStatFilter(){
+					FilterRegistrationBean bean = new FilterRegistrationBean();
+					bean.setFilter(new WebStatFilter());
+					// 可以过滤哪些请求
+					Map<String, String> initParameters = new HashMap<>();
+					// 这些东西不进行统计
+					initParameters.put("exclusions", "*.js,&.css,/druid/*");
+					bean.setInitParameters(initParameters);
+					return bean;
+				}
+			}
+	
+	-> 测试
+		浏览器访问：http://localhost:8080/druid/
+		登录：根据配置类中配置的账号名与密码。(例：admin|123456)
+		进入druid监控系统。
+		
+		执行项目查询请求：http://localhost:8080/user/list
+		刷新druid平台，可以看到数据访问执行信息。
+
+---------------------	
+
+-> 整合mybatis框架	
+	<springboot004>
+	<创建时勾选：sql：jdbc api 、mysql driver 、spring web>
+	
+	-> pom文件修改
+		// 添加下面依赖
+			<!-- 整合mybatis -->
+			<dependency>
+				<groupId>org.mybatis.spring.boot</groupId>
+				<artifactId>mybatis-spring-boot-starter</artifactId>
+				<version>2.1.3</version>
+			</dependency>
+			<!--实体类构建-->
+			<dependency>
+				<groupId>org.projectlombok</groupId>
+				<artifactId>lombok</artifactId>
+			</dependency>
+
+	-> 修改配置文件yaml
+		spring:
+			datasource:
+				#时区&编码
+				url: jdbc:mysql://localhost:3306/qlj_sql?serverTimezone=UTC&useUnicode=true&characterEncoding=utf-8
+				username: root
+				password: 123456
+				driver-class-name: com.mysql.cj.jdbc.Driver
+		
+		#mybatis整合<当前部分在mapper.xml编写时进行配置>
+		#具体配置properties类：MybatisProperties，查看可配置属性
+		mybatis:
+			#添加包别名(实体类别名)
+			type-aliases-package: com.sg.pojo
+			#配置Mapper.xml文件位置
+			mapper-locations: classpath:mybatis/mapper/*.xml
+		
+	-> 在pojo目录中创建Users实体类
+		// 连接数据库后再创建，方便复制属性名
+			@Data
+			@NoArgsConstructor
+			@AllArgsConstructor
+			public class Users {
+				private Integer id;
+				private String name;
+				private String user;
+				private String password;
+			}
+		
+	-> 在mapper目录下创建UserMapper业务接口
+		使用@Mapper注解和@MapperScan注解来将Mapper接口类交给Sprinig进行管理。
+		-> @Mapper
+			// 直接在Mapper接口类中加@Mapper注解
+		-> @MapperScan
+			// 在启动类上添加该注解
+				@MapperScan("com.sg.mapper") 
+				
+		-> 代码
+			// 表示这是一个mybatis的mapper接口类
+			@Mapper
+			public interface UserMapper {
+				// 查询
+				List<Users> selectUsers();
+				// 新增
+				int insertUser(Users user);
+				// 修改
+				int updateUser(Users user);
+				// 删除
+				int deleteUser(int id);
+			}
+		
+	-> 实现UserMapper.xml
+		注意：
+			创建位置：classpath:mybatis/mapper/UsersMapper.xml		// resources下
+		
+		<mapper namespace="com.sg.mapper.UserMapper">
+			<!--查询-->
+			<!--resultType：需要在配置文件中添加包别名，否则就要写全限定包名-->
+			<select id="selectUsers" resultType="Users">
+				SELECT * FROM users
+			</select>
+
+			<!--新增-->
+			<insert id="insertUser" parameterType="Users">
+				INSERT INTO users VALUES(#{id},#{name},#{user},#{password})
+			</insert>
+
+			<!--修改-->
+			<update id="updateUser" parameterType="Users">
+				UPDATE users SET name=#{name},user=#{user},password=#{password} WHERE id = #{id}
+			</update>
+
+			<!--删除-->
+			<delete id="deleteUser" parameterType="_int">
+				DELETE FROM users WHERE id=#{id}
+			</delete>
+		</mapper>
+	
+		// 注意：需要在yaml中配置包扫描以及注册xml文件
+		#mybatis整合
+		#具体配置properties类：MybatisProperties，查看可配置属性
+		mybatis:
+		  #添加包别名(实体类别名)
+		  type-aliases-package: com.sg.pojo
+		  #配置Mapper.xml文件位置
+		  mapper-locations: classpath:mybatis/mapper/*.xml
+
+	-> 实现业务逻辑层与界面层
+		此处忽略业务逻辑层。
+			@RestController
+			public class UserController {
+				@Autowired
+				private UserMapper userMapper;
+
+				// 查询
+				@GetMapping("/user/list")
+				public List<Users> toUsers(){
+					List<Users> users = userMapper.selectUsers();
+					return users;
+				}
+
+				// 增加
+				@RequestMapping("/user/insert")
+				public String toInsertUser(){
+					Integer maxId = userMapper.selectUsers().stream().max(Comparator.comparing(Users::getId)).get().getId() + 1;
+					userMapper.insertUser(new Users(maxId,"老钱", "lq", "1111"));
+					return "success insert";
+				}
+
+				// 修改
+				@RequestMapping("/user/update")
+				public String toUpdateUser(){
+					// 模拟前端参数id
+					int id = 10;
+					List<Integer> idList = userMapper.selectUsers().stream().map(Users::getId).collect(Collectors.toList());
+					if (idList.contains(id)){
+						userMapper.updateUser(new Users(id,"老钱", "lq", "123456"));
+						return "success update";
+					}else {
+						return "修改失败，不存在当前信息，无法修改！";
+					}
+				}
+
+				// 删除
+				@RequestMapping("/user/delete")
+				public String toDeleteUser(){
+					userMapper.deleteUser(10);
+					return "success delete";
+				}
+			}
+
+
+-------------------------
+-> SpringSecurity(安全管理)
+	<安全管理框架>
+	
+	<传统安全限制使用过滤器与拦截器>
+	shiro/SpringSecurity 常用框架
+	
+	常见安全功能：<功能权限、访问权限、菜单权限>
+	
+	-> 简介
+		SpringSecurity 是针对Spring项目的安全框架，也是SpringBoot底层安全模块默认的技术选型，他可以实现强大的Web安全控制，
+		对于安全控制，我们仅需要引入依赖‘spring-boot-starter-security’模块，进行少量的配置，即可实现强大的安全管理。
+		<Spring Security主要目标是‘认证’，‘授权’>
+			‘认证’：Authentication
+			‘授权’：Authorization
+			// 这个概念是通用的，并不是SpringSecurity中存在的。
+		
+	-> 关键类
+		// WebSecurityConfigurerAdapter：自定义Security策略
+		// AuthenticationManagerBuilder：自定义认证策略
+		// @EnableWebSecurity：开启WebSecurity模式									// @Enablexxx 开启某个功能
+		
+	-> 官方文档：
+		https://spring.io/projects/spring-security
+	-> 帮助文档
+		https://docs.spring.io/spring-security/site/docs/5.2.0.RELEASE/reference/htmlsingle/
+	
+	----------
+	-> 开始项目
+		-> 导入依赖
+			<dependency>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-starter-security</artifactId>
+			</dependency>
+		-> 
+	
+-> Shiro<安全管理>
+	
+	
+	
+
+
+
+
+
+-> Swagger
+	
+		用于生成、描述、调用和可视化 RESTful 风格的 Web 服务以及 集成Swagger自动生成API文档。
+		Swagger 的目标是对REST API定义一个标准且和语言无关的接口，可以让人和计算机拥有无须访问源码、文档或网络流量监测就可以发现和理解服务的
+	能力。当通过Swagger 进行正确定义，用户可以理解远程服务并使用最少实现逻辑与远程服务进行交互。与为底层编程所实现的接口类似，Swagger 消除了
+	调用服务时可能会有的猜测。
+	
+	-> 优势
+			支持 API 自动生成同步的在线文档：使用 Swagger 后可以直接通过代码生成文档，不再需要自己手动编写接口文档了，对程序员来说非常方便，
+		可以节约写文档的时间去学习新技术。提供 Web 页面在线测试 API：光有文档还不够，Swagger 生成的文档还支持在线测试。参数和格式都定好了，
+		直接在界面上输入参数对应的值即可在线测试接口。
+
+	-> 场景
+		前后端集成联调，前端人员和后端人员无法做到 “及时协商，尽早解决”，最终导致问题集中爆发。
+
+	-> Springboot集成Swagger
+		1、创建项目：springboot008-swagger
+		2、添加依赖
+			    <!-- https://mvnrepository.com/artifact/io.springfox/springfox-swagger2 -->
+				<dependency>
+					<groupId>io.springfox</groupId>
+					<artifactId>springfox-swagger2</artifactId>
+					<version>2.9.2</version>
+				</dependency>
+				<!-- https://mvnrepository.com/artifact/io.springfox/springfox-swagger-ui -->
+				<dependency>
+					<groupId>io.springfox</groupId>
+					<artifactId>springfox-swagger-ui</artifactId>
+					<version>2.9.2</version>
+				</dependency>
+		
+		3、编写HelloController，测试项目。
+		
+		4、在config目录配置Swagger：SwaggerConfig.java
+			-> 开启Swagger2
+			
+				@Configuration
+				@EnableSwagger2     // 开启swagger2
+				public class SwaggerConfig {
+					// 配置swagger的Docket的Bean实例
+					@Bean
+					public Docket docket(Environment environment){
+
+						// 设置要显示的swagger环境
+						Profiles profiles = Profiles.of("dev","test");
+						// 通过environment.acceptsProfiles判断是否处于自己设定的环境<可以判断项目运行环境>
+						boolean flag = environment.acceptsProfiles(profiles);
+
+						return new Docket(DocumentationType.SWAGGER_2)
+								.apiInfo(apiInfo())
+								.enable(flag)       // enable 是否启动swagger，如果为false，则swagger不能在浏览器中访问
+								.select()
+								.apis(RequestHandlerSelectors.basePackage("com.sg.controller"))
+								.build();
+					}
+
+
+					// 配置Swagger-UI页面信息：apiInfo
+					private ApiInfo apiInfo(){
+						// 作者信息
+						Contact contact = new Contact("屈刘杰", "http://localhost:8080/", "11966910355@qq.com");
+						// ApiInfo对应swagger-ui中的信息
+						return new ApiInfo("qlj的springbootAPI文档"
+								, "学习之路让我无所畏惧！"
+								, "v1.0"
+								, "http://localhost:8080/"
+								, contact
+								, "Apache 2.0"
+								, "http://www.apache.org/licenses/LICENSE-2.0"
+								, new ArrayList());
+					}
+				}
+
+
+		5、Select a spec<配置多个分组>
+			// 配置A组
+			@Bean
+			public Docket docket1(){
+				return new Docket(DocumentationType.SWAGGER_2).groupName("A");
+			}
+			// 配置B组
+			@Bean
+			public Docket docket2(){
+				return new Docket(DocumentationType.SWAGGER_2).groupName("B");
+			}
+			// 配置C组
+			@Bean
+			public Docket docket3(){
+				return new Docket(DocumentationType.SWAGGER_2).groupName("C");
+			}
+		
+		6、测试Swagger
+			http://localhost:8080/swagger-ui.html
+		
+		
+		
+-> 任务
+	-> 异步任务
+		-> 项目测试创建
+			// service层<忽略接口层>
+
+				public void hello(){
+					// 线程休眠
+					try {
+						Thread.sleep(5000);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+					System.out.println("数据正在休眠处理中！");
+				}
+				
+		
+			// controller层
+				@Autowired
+				AsyncServiceImpl asyncController;
+
+				@RequestMapping("/hello")
+				public String doHello(){
+					asyncController.hello();
+					return "完成";
+				}
+		
+		-> 浏览器测试。
+			访问/hello时，浏览器页面不会立即响应出‘完成’，会先等待5秒，5秒后显示页面。
+		
+		-> 实现异步执行效果
+			实际上就是将service层的任务在一个新的线程中执行，而service与controller不是同一个线程，实现异步后，互不影响。
+			
+			1、在hello()方法上添加‘@Async’注解。
+				@Async：告诉spring这是一个异步执行的方法<controller层调用时，不会因为hello方法没有执行结束而界面展示一直等待>
+
+			2、在启动类上添加注解‘@EnableAsync’。
+				@EnableAsync：开启异步注解功能
+
+	
+	-> 邮件发送
+	
+		-> 依赖导入
+			<!--javax.mail邮件发送-->
+			<dependency>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-starter-mail</artifactId>
+			</dependency>
+			
+		-> 获取邮箱密码加密钥匙
+			登录QQ邮箱-->设置-->账户-->POP3/SMTP服务-->开启<发送验证后获取到加密的密码>
+	
+		-> 配置yaml文件
+			spring:
+				mail:
+					username: 1966910355@qq.com
+					password: ceczestgaeabbhcg		#加密钥匙
+					host: smtp.qq.com
+					#开启ssl加密验证
+					properties:
+						mail:
+							smtp:
+								ssl:
+									enable: true
+		
+		-> test中测试发送邮件
+			<实际业务中肯定要由用户前端发送具体内容>
+				
+				// 直接自动加载类，由spring创建
+				@Autowired
+				JavaMailSenderImpl mailSender;
+				@Test
+				void contextLoads() {
+					// 一个简单的邮件发送对象
+					SimpleMailMessage mailMessage = new SimpleMailMessage();
+					// 邮件主题
+					mailMessage.setSubject("小屈同学你好呀！");
+					// 邮件内容
+					mailMessage.setText("学习是一辈子的事！");
+					// 发送对象
+					mailMessage.setTo("1966910355@qq.com");
+					// 由谁发送
+					mailMessage.setFrom("1966910355@qq.com");
+					// 执行发送
+					mailSender.send(mailMessage);
+				}
+
+				@Test
+				void contextMail() throws MessagingException {
+					// 一个复杂的邮件发送对象
+					MimeMessage mimeMessage = mailSender.createMimeMessage();
+					// 组装
+					MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true);
+
+					// 设置主题
+					helper.setSubject("小屈同学不错哟！");
+					// 内容<开启html代码功能，可以进行渲染>
+					helper.setText("<p style='color:red'>你的第一封复杂邮件，很不错哟！</p>",true);
+					// 附件
+					helper.addAttachment("1.jpg", new File("C:\\Users\\DELL\\Desktop\\xx.jpg"));
+					helper.addAttachment("2.jpg", new File("C:\\Users\\DELL\\Desktop\\xx.jpg"));
+					// 发送对象
+					helper.setTo("1966910355@qq.com");
+					// 由谁发送
+					helper.setFrom("1966910355@qq.com");
+
+					// 发送
+					mailSender.send(mimeMessage);
+				}
+				
+	
+	-> 定时任务
+		在守护线程中学习到使用Timer类创建定时器，而Spring中使用Task相关类进行配置实现。
+		
+		-> 重点
+			TaskScheduler	// 任务调度者
+			TaskExecutor	// 任务执行者
+			
+			// 配置
+				@EnableScheduling		// 开启定时功能注解<位置：在启动类上>
+				@Scheduled(cron = "")	// 任务执行定时时间设置<位置：在任务方法上注解>
+				
+			// cron表达式
+				Cron表达式是一个字符串，字符串以5或6个空格隔开，分为6或7个域，每一个域代表一个含义。
+				Cron有如下两种语法格式：
+					1、秒 分 时 日 月 星期 年
+					2、秒 分 时 日 月 星期
+					<日：月的第几天；星期：周的第几天>
+				注：
+					1、@Scheduled注解中的cron仅支持6个域的表达式，也就是不能设定年，如果超过六个则会报错
+					2、DayofMonth和DayofWeek会相互影响
+				
+				// 通配符
+					*：表示匹配该域的任意值
+					?：表示匹配域的任意值（仅用在DayofMonth和DayofWeek两个域）
+					-：表示范围
+					/：表示起始时间开始触发，然后每隔固定时间触发一次
+					,：表示列出枚举值
+					L：表示最后，（仅用在DayofMonth和DayofWeek两个域）
+					W：表示有效工作日(周一到周五，仅用在DayofMonth域）系统将在离指定日期的最近的有效工作日触发事件，且W的最近寻找不会跨过月份
+					LW：表示在某个月最后一个工作日，即最后一个星期五
+					#：用于确定每个月第几个星期几（仅用在DayofWeek域）
+
+		-> 代码实现
+			// 开启定时注解扫描
+				在启动类上添加‘@EnableScheduling’
+				
+			// 实现定时任务
+				在service层中实现定时任务具体内容。
+				
+				    @Override
+					@Scheduled(cron = "0/10 * * * * ?")     // 每10s执行一次
+					public void time() {
+						Date date = new Date();
+						System.out.println(date+"：定时任务执行");
+					}
+				
+				// 注意：在springboot服务启动后这个定时任务就会启动执行<守护线程>。
+
+
+----------------------------- idea翻译插件(translation) ---------------------------------
+							  
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,69 @@
+-> json语法规则
+	JSON 语法是 JavaScript 对象表示语法的子集。
+
+	数据在名称/值对中
+	数据由逗号 , 分隔
+	使用斜杆来转义 \ 字符
+	大括号 {} 保存对象
+	中括号 [] 保存数组，数组可以包含多个对象
+
+-> JSON数据的书写格式
+	key : value			// 例："name" : "屈刘杰"  /  "age":30
+	
+-> JSON 的两种结构：
+	1、对象：
+		大括号{}保存的对象是一个无序的键值对集合。
+		一个对象以左括号 { 开始， 右括号 } 结束。每个"键"后跟一个冒号:，键值对之间使用逗号 , 分隔。
+		例：
+			{key1 : value1, key2 : value2, ... keyN : valueN}		// { "name":"屈刘杰" , "age":23 }
+			
+		注：key 必须是字符串，value 可以是合法的 JSON 数据类型（字符串, 数字, 对象, 数组, 布尔值或 null）。
+		
+	2、数组：
+		括号[]保存的数组是值（value）的有序集合。一个数组以左中括号 [ 开始， 右中括号 ] 结束，值之间使用逗号 , 分隔。
+		例：
+			[
+				{ key1 : value1-1 , key2:value1-2 }, 
+				{ key1 : value2-1 , key2:value2-2 }, 
+				...
+				{ key1 : valueN-1 , key2:valueN-2 }, 
+			]
+			// 案例：
+				{
+					"student": [
+						{ "name":"屈刘杰" , "age":23}, 
+						{ "name":"张美琪" , "age":23},  
+						{ "name":"许永琪" , "age":22}
+					]
+				}
+				// 对象student是包含三个对象的数组。每个对象代表一条学生记录。
+		注：
+			JSONArray有两种数据格式：
+				1、[{},{},...]			// 数组中存储JSONObject对象
+					例：[{"name":"zmq","item":[23,"西安","冶金"]},{"name":"qlj","age":23}]
+				2、[str1,str2,...]		// 数组中直接存储数据，允许存储不同类型数据
+					例：["2022-08-19 00:55:20",{"name":"qlj","age":23}]
+		
+-> 嵌套 JSON 对象
+	案例：
+		{
+			"name":"runoob",
+			"alexa":10000,
+			"sites": {
+				"site1":"www.runoob.com",
+				"site2":"m.runoob.com",
+				"site3":"c.runoob.com"
+			}
+		}
+
+
+-> json类型转换
+	public static final Object parse(String text);                 // 把JSON文本parse为JSONObject或者JSONArray 
+	public static final JSONObject parseObject(String text)；      // 把JSON文本parse成JSONObject    
+	public static final  T parseObject(String text, Class clazz);  // 把JSON文本parse为JavaBean 
+	public static final JSONArray parseArray(String text);         // 把JSON文本parse成JSONArray 
+	public static final  List parseArray(String text, Class clazz); //把JSON文本parse成JavaBean集合 
+	public static final String toJSONString(Object object);         // 将JavaBean序列化为JSON文本 
+	public static final String toJSONString(Object object, boolean prettyFormat);    // 将JavaBean序列化为带格式的JSON文本 
+	public static final Object toJSON(Object javaObject);          //将JavaBean转换为JSONObject或者JSONArray。
+	Map maps = (Map<String, List<JSONArray>>)JSON.parse(str);  			// 将str这个json字符串转换为map集合

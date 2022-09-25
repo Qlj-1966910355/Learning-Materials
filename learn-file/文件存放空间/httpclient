@@ -1,0 +1,116 @@
+-> HttpClient介绍
+	-> 简介
+		Java 开发语言中实现HTTP请求的方法主要有两种：一种是JAVA的标准类HttpUrlConnection，比较原生的实现方法；另一种是第三方开源框架HTTPClient。
+		HttpClient为第三方Http 客户端类库；在开发过程中主要是发送Http协议的Post请求和Get请求。
+		其中Post请求使用HttpPost对象构建、Get请求使用HttpGet对象构建。
+	-> 使用场景
+		<爬虫><多系统接口交互>
+	
+	
+	
+	
+	-> HttpClient使用方法
+	
+		1、创建HttpClient对象。
+		2、创建请求方法的实例，并指定请求URL。如果需要发送GET请求，创建HttpGet对象；如果需要发送POST请求，创建HttpPost对象。
+		3、如果需要发送请求参数，可调用HttpGet、HttpPost共同的setParams(HetpParams params)方法来添加请求参数；
+		   对于HttpPost对象而言，也可调用setEntity(HttpEntity entity)方法来设置请求参数。
+		4、调用HttpClient对象的execute(HttpUriRequest request)发送请求，该方法返回一个HttpResponse。
+		5、调用HttpResponse的getAllHeaders()、getHeaders(String name)等方法可获取服务器的响应头；调用HttpResponse的getEntity()
+		   方法可获取HttpEntity对象，该对象包装了服务器的响应内容。程序可通过该对象获取服务器的响应内容。
+		6、释放连接。无论执行方法是否成功，都必须释放连接
+	
+	-> HttpGet请求
+
+		public static void main(String[] args) throws Exception {
+			// 格式化请求url
+		  // String cmd=String.format("http://%s:%s@%s",username,password,split[1]);
+			
+			// 请求地址
+		  String url = "https://blog.csdn.net/amosjob/article/details/82775290";
+		  // 创建默认的客户端实例 
+		  CloseableHttpClient httpclient = HttpClients.createDefault();
+		  // 创建get请求实例 
+		  HttpGet httpGet = new HttpGet(url);
+		  // 设置头部信息
+		  httpGet.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; rv:6.0.2) Gecko/20100101 Firefox/6.0.2");
+		// httpGet.addHeader("x-api-key", "XXX");
+		// httpGet.addHeader("x-lang", "en-US");
+		  // 执行GET请求 返回响应实体 
+		  HttpResponse response = httpclient.execute(httpGet);
+		  // 获取响应码
+		  int statusCode = response.getStatusLine().getStatusCode();
+		  // 获取全部的请求头
+		  Header[] allHeaders = response.getAllHeaders();
+		  System.out.println("响应状态码：" + statusCode);
+		  for (int i = 0; i < allHeaders.length; i++) {
+			 System.out.println("全部的请求头：" + allHeaders[i]);
+			}
+		  // 获取响应消息实体 
+		  HttpEntity entity = response.getEntity();
+		  //打印输出网页的内容(可删除)
+		  if (entity != null) {
+			// 推荐该办法打印内容
+			System.out.println("响应的内容："+EntityUtils.toString(entity));
+			
+			// 也可以使用这个方法
+			InputStream inputStream = entity.getContent();
+			InputStreamReader streamReader = new InputStreamReader(inputStream);
+			int line;
+			line = streamReader.read() ;
+			while (line!= -1) {
+			  System.out.print((char)line);
+			  line = streamReader.read() ;
+			}
+		  }
+			// 关闭连接
+			try {
+				httpclient.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}	
+		
+	-> HttpPost请求
+		public static void main(String[] args) throws Exception {
+			// 请求地址
+			String url = "https://passport.csdn.net/account/login";
+			// 创建默认的客户端实例
+			CloseableHttpClient httpclient = HttpClients.createDefault();
+			// 创建POST对象
+			HttpPost httpPost = new HttpPost(url);
+			// 传参数
+			List<NameValuePair> params = new ArrayList<NameValuePair>();
+			params.add(new BasicNameValuePair("username", "admin"));
+			params.add(new BasicNameValuePair("password", "12345"));
+			try {
+				UrlEncodedFormEntity entity = new UrlEncodedFormEntity(params);
+				httpPost.setEntity(entity);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			// 执行GET请求 返回响应实体
+			HttpResponse response = httpclient.execute(httpPost);
+			// 获取响应码
+			int statusCode = response.getStatusLine().getStatusCode();
+			// 获取全部的请求头
+			Header[] allHeaders = response.getAllHeaders();
+			System.out.println("响应状态码：" + statusCode);
+			for (int i = 0; i < allHeaders.length; i++) {
+				System.out.println("全部的请求头：" + allHeaders[i]);
+			}
+			// 获取响应消息实体
+			HttpEntity entity = response.getEntity();
+			// 打印输出网页的内容(可删除)
+			if (entity != null) {
+				System.out.println("响应的内容："+EntityUtils.toString(entity));
+			}
+			// 关闭连接
+			try {
+				httpclient.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}

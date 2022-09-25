@@ -1,0 +1,24 @@
+最底层的是数据库，
+1、pojo/domain就是对应数据库的类，叫实体类，
+2. mapper /dao 定义接口，然后实现，sql语句，
+3. service 链接 controller ，mapper之间的桥梁。在此层做相应的业务逻辑处理。
+4. controller就是后台，负责跳转 requestmapping 。
+5. config就是配置类，配置一些环境，国际化，过滤器之类的
+
+
+
+dao类：
+Data Access Object数据访问对象
+访问数据库的java类，一般情况下每一张表都要一个单独的dao类。
+
+entity类
+意思是实体，所以也称为实体类，也叫domain或bean或pojo
+类中包含了承载信息用的属性构造和getters，setters，一般情况下一张表都要对应一个单独的实体类。
+
+controller类
+意思是控制器，控制请求和响应的操作
+实际上就是我们编写的Servlet，现在暂时一个Servlet对应一个业务
+
+utils类
+意思是工具类，在业务中起辅助作用的类
+现阶段DBUtils类就是这个类型的。

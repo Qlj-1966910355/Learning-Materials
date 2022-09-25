@@ -1,0 +1,568 @@
+-> 前端传统请求
+	-> 超链接
+		<a href="/oa01/request">请求1</a>
+	-> form表单
+		<form action="/oa01/request" method="get">
+			<input type="submit" name="user" value="请求2">
+		</form>
+	-> js代码发送请求
+		<input type="button" value="请求3" onclick="doSome()">
+		<script type="text/javascript">
+			function doSome(){
+				// 发送请求
+				// window.location.href = "/oa01/request";
+				document.location.href = "/oa01/request";
+			}
+		</script>
+	传统请求的缺点：
+		点击发送请求时，浏览页面全部刷新，但实际开发中，并不需要全部刷新，只想局部刷新，这样就不会造成浏览加载和处理负担。
+		
+-> AJAX请求与传统请求的区别？<ajax请求原理>
+	// 传统的web请求是一种同步请求，用户必须等待每个请求，当一个请求完成后才能得到响应结果，然后再发送下一个请求再响应执行。
+		用户行为与服务器是一种同步关系。
+	// ajax请求是一种异步请求，这意味着客户端与服务端不需要再相互等待，而是进行一种并发的操作。当前请求未响应完成，依然可以继续
+		发送其他请求，服务器完成响应后，ajax引擎会将响应的数据展示给用户。<页面并不会全部刷新>
+	注意：
+		1、ajax请求的客户端与服务端多了一层ajax引擎，它负责处理用户的行为，并转化为对服务器的请求。同时它接收服务端的信息，经过处理显示给用户。
+		2、对于ajax来，服务端可能会给前端发送三种数据：普通文本、xml字符串、json字符串。
+		3、ajax将服务端响应的数据进行解析，然后渲染到div图层中，而接收到数据的div图层就会进行局部刷新。
+		
+-> ajax缺点
+	1、ajax通信常常是一个数据片段,例如,xml.html片段,或者纯文本,这些信息不是完整的html文档,而且通过后台来异步获取,不能被搜索引擎发现并缓存。
+	2、ajax将大量的运算从服务器端转移到了客户端,意味着浏览器将承受更大的负担,不再是简单的文档显示。
+		ajax中的核心语言是javascript,作为一门解释型的脚本语言,其运行效率不是很高,而且依赖不同的浏览器实现。
+		
+-> XMLHttpRequest对象
+	-> XMLHttpRequest对象是ajax的核心对象，发送请求以及接收服务器响应的数据。
+		<实际上：ajax的本质就是发送http请求的工作交给了js中的XMLHttpRequest对象去做>
+	-> XMLHttpRequest对象目前在浏览器中基本都支持，都内置了该对象，直接使用就行。
+	-> 创建XMLHttpRequest对象
+		var xhr = new XMLHttpRequest();
+		
+	-> XMLHttpRequest对象的常用属性
+		-> readyState属性
+			ajax从xhr对象创建开始，一直到完全接收服务器的响应结果为止。将这个请求响应过程分为5个阶段状态。
+			-> xhr.readyState === 0	
+				// 初始状态，表示xhr对象一定创建了
+			-> xhr.readyState === 1
+				// 服务器连接已建立
+			-> xhr.readyState === 2
+				// 请求已经收到(响应头已接收)
+			-> xhr.readyState === 3
+				// 正在接收服务器返回的数据(可能已接收完毕，也可能正在接收中，取决于数据量的大小)
+			-> xhr.readyState === 4
+				// ajax请求~响应过程完成
+		
+		-> onreadyStateclick属性
+			// 当Ajax的请求状态改变的时候(会触发多次)
+			// 一般用于配合上述的readyState使用的事件
+		
+		-> status属性
+			// 获取http响应状态码
+				例：
+					200: "OK"
+					404: 未找到页面
+					
+		-> responseText属性
+			// 返回字符串形式的响应
+			例：document.write(this.responseText);
+			注意：若输出到提示框，则直接将响应内容转化为字符串；如果输出到浏览器页面，则直接将响应内容通过浏览器解析输出
+		
+	-> XMLHttpRequest对象的常用方法
+		-> xhr.open(method, url, async);
+			// 开启通道
+			参数：
+				method：请求的类型；GET 或 POST
+				url：文件在服务器上的位置
+				async：true(异步)或 false(同步) <一般都使用异步>
+			例：xhr.open("GET","ajax_info.txt",true);
+		
+		-> xhr.send(string);
+			// 将请求发送到服务器。
+			参数：
+				string：仅用于POST请求
+
+		
+-> 发送ajax请求步骤
+	-> 首先设计一个简单的html页面。
+		<!--给一个按钮，用户点击按钮发送请求-->
+		<input type="button" value="hello ajax" id="helloBtn">
+		
+		<!--给一个div图层，ajax接收响应的数据后，在div中进行渲染-->
+		<div id="mydiv"></div>
+		
+	-> 在JavaScript脚本块中编写ajax请求。
+		0、首先写一个发送请求的回调函数。(当点击id="helloBtn"的按钮，则执行函数)
+			window.onload = function () {
+				document.getElementById("helloBtn").onclick = function () {
+					// 请求函数体
+				}
+			}
+			
+		// 下面就是ajax主要的请求步骤
+		1、创建ajax核心对象XMLHttpRequest
+			var xhr = new XMLHttpRequest();
+		2、注册回调函数
+			// 在XMLHttpReqquest对象的状态值发生改变时被调用
+			xhr.onreadystatechange = function() {
+				// 这个回调函数会被调用多次，每当状态改变就会调用一次
+			}
+			
+			下面介绍该回调函数主要作用：
+				-> 使用判断语句，当响应结束(状态值为4)时，执行一些操作
+					// 当XMLHttpReqquest对象的状态值变成 4 时，说明服务器响应结束
+					if (this.readyState == 4) {
+						// 输出响应状态码
+						console.log("响应状态码：" + this.status);
+						
+						// 根据响应状态码提示用户
+						if (this.status == 200){
+                            window.alert("响应成功！")
+							
+						// 接收响应成功后将servlet资源的响应信息
+							// 直接响应到浏览上。注意：这样会刷新整个页面。
+							document.write(this.responseText);
+							
+							// 将响应内容渲染到准备好的div图层中
+							document.getElementById("mydiv").innerHTML = this.responseText;
+							/*
+								注意：
+									innerHTML属性允许更改html元素的内容,可以设置或返回表格行的开始和结束标签之间的HTML
+									innerText只会将等号右边的内容当做普通文本内容，然后渲染给对应图层。
+							*/	
+						}
+					}
+			
+			
+		3、开启通道
+			xhr.open("GET", "/servlet08/ajax01", true);
+			// 注意：参数2中需要写项目根目录。
+		4、发送请求
+			xhr.send();
+	
+
+-> ajax get请求缓存问题
+	对于一些低版本的浏览器，ajax的get请求可能会走缓存，存在缓存问题。
+	<实际大部分浏览器已经不存在get缓存问题了>
+	-> ajax的get请求缓存问题是什么?
+		http协议规定：
+			get请求在执行并响应后会缓存在浏览中，第二次打开直接走缓存。
+			post请求在执行并响应不会缓存。
+			优点：
+				再次访问时直接从浏览缓存中获取资源，不需要从服务器中获取。速度快，用户体验好。
+			缺点:
+				无法实时获取最新的服务器资源。
+				
+			什么时候走缓存？
+				// 是一个get请求
+				// 请求路径已经被浏览缓存过，第二次发送请求时，路径没有发生变化，会走浏览缓存。
+	-> 如何解决缓存问题
+		// 在前端程序中的请求地址后添加一个时间戳，每次请求获取时间戳
+			例：xhr.open("GET", "/servlet08/ajax01?t="+new Date().getTime, true);
+		// 也可以在请求地址后面添加一个随机数。
+			例：例：xhr.open("GET", "/servlet08/ajax01?t="+Math.random(), true);
+	
+-> get/post请求获取表单请求信息
+	在开发中，表单信息通常需要用户输入验证。
+	-> get请求获取
+		对于get请求，由于请求体直接放在请求行中，所以可以直接将请求信息放在请求地址后面。
+		例：
+			var username = document.getElementById("username").value;
+            var password = document.getElementById("password").value;
+			xhr.open("GET", "/servlet08/ajax02?username=" + username + "&password="+password, true);
+			// 注意格式：url?name=value&name=value...
+	
+	-> post请求
+		对于post请求，请求体与请求行时分开的，不能直接放在请求地址后面。
+		// 使用send(String)方法。
+			将请求信息放在send()方法中。
+		// 注意：post怎样模拟form表单提交？			*******
+			在send()发送请求前需要模拟form表单提交
+			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+		
+		例：
+			xhr.open("POST", "/servlet08/ajax02", true);
+			// 发送请求
+			// (关键点)模拟form表单。请求体以form表单提交。
+			xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+			var username = document.getElementById("username").value;
+            var password = document.getElementById("password").value;
+			xhr.send("username=" + username + "&password="+password);
+		注意格式：send("name=value&name=value...");
+	
+	// servlet资源获取请求信息依然是request.getParameter("name");
+
+
+
+-> AJAX的异步与同步
+	<异步不阻塞后面代码执行，同步会阻塞后面代码的执行>
+	-> 同步：
+			当JS代码加载到当前ajax的时候会把页面里所有的代码停止加载，页面出现假死状态，
+		当这个ajax执行完毕后才会继续运行其他代码，页面假死状态消失。
+	-> 异步；
+			当ajax发送请求后，在等待server端返回的这个过程中，前台会继续执行ajax块后面的脚本，
+		直到server端返回正常的结果才会执行success，这时候执行的是两个线程，ajax块发出请求后一
+		个线程和ajax块后面脚本（另一个线程）
+	
+	-> 同步与异步的实现
+		同步：
+			xhr.open("GET", "/servlet08/ajax05", false);		// false表示同步
+		异步：
+			xhr.open("GET", "/servlet08/ajax05", true);			// true表示异步
+		// 注意：
+			当浏览器发送请求的是同步请求，则该请求到响应的过程中，其他ajax请求会被阻塞，只能等待同步请求执行完毕才能执行其他请求。
+	
+	-> 同步在什么场景下才会使用？
+		例：注册/登录校验。
+			注册账户时，一般需要校验用户名、邮箱等信息是否重复，只有当校验完成之后才可以点击注册。
+			<此时，校验ajax请求就必须是同步请求，校验过程中阻塞其他ajax请求发送>
+			
+		
+-> jquery
+	-> 概念
+		jQuery是一个JavaScript库，它通过封闭原生JavaScript函数得到一整套定义好的方法。
+	jQuery作为JavaScript封装的库，他的目的就是为了简化开发者使用JavaScript。
+	
+	-> 基本语法
+		-> $(selector).action()
+			美元符号定义jQuery对象
+			选择符（selector）"查询"和"查找" HTML 元素
+			jQuery 的 action() 执行对元素的操作
+		
+		-> 文档就绪事件
+			$(document).ready(
+				function(){
+				
+				}
+			)
+			// 这是为了防止文档在完全加载（就绪）之前运行 jQuery 代码，即在 DOM 加载完成后才可以对 DOM 进行操作。
+			// 如果在文档没有完全加载之前就运行函数，操作可能失败
+			
+		-> jQuery选择器	
+			-> 元素选择器
+				$("p")	// 在页面中选取所有 <p> 元素:
+			-> #id 选择器
+				$("#test")	// 通过HTML元素的id属性选取指定的元素
+			-> .class 选择器
+				$(".test")	// 通过指定的class查找元素。
+			
+			-> 其他选择器
+				$("*")	// 选取所有元素
+				$(this)	// 选取当前HTML元素
+				$("p:first")	// 选取第一个<p>元素
+				$("p.intro")	// 选取 class 为 intro 的 <p> 元素
+				$("ul li:first-child")	// 选取每个 <ul> 元素的第一个 <li> 元素
+				$(":button")	// 选取所有 type="button" 的 <input> 元素 和 <button> 元素
+		
+		-> jQuery事件
+			页面对不同访问者的响应叫做事件。
+			事件处理程序指的是当 HTML 中发生某些事件时所调用的方法.
+			例：
+				-> $(document).ready() 方法允许我们在文档完全加载完后执行函数。
+				-> click() 方法是当按钮点击事件被触发时会调用一个函数。
+		
+		-> 获取HTML内容和属性(操作DOM)
+			-> 获得内容
+				-> text()		// 设置或返回所选元素的文本内容
+					例：alert("Text: " + $("#test").text());	// 获得内容
+					
+				-> html()		// 设置或返回所选元素的内容（包括 HTML 标记）
+					例：alert("HTML: " + $("#test").html());	// 当test指定的html标签中存在其他标签，直接输出标签与内容。
+					
+				-> val()		// 设置或返回表单字段的值
+					例：alert("值为: " + $("#test").val());
+		
+			-> 获得属性
+				-> attr() 		// 方法用于获取属性值。
+					例：alert($("#runoob").attr("href"));
+		
+		-> 设置内容和属性
+			-> 设置内容
+				-> text()		// 设置或返回所选元素的文本内容
+					例：$("#test1").text("Hello world!");
+					
+				-> html()		// 设置或返回所选元素的内容（包括 HTML 标记）
+					例：$("#test2").html("<b>Hello world!</b>");
+					
+				-> val()		// 设置或返回表单字段的值
+					例：$("#test3").val("RUNOOB");
+		
+			-> 设置属性
+				-> attr() 		// 方法用于设置属性值。
+					例：$("#runoob").attr("href","http://www.runoob.com/jquery");
+		
+		-> 添加元素
+			-> append()			// 在被选元素的结尾插入内容
+				例：$("p").append("追加文本");
+			-> prepend()		// 在被选元素的开头插入内容
+				例：$("p").prepend("在开头追加文本");
+			-> after()			// 在被选元素之后插入内容
+				例：$("img").after("在后面添加文本");
+			-> before()			// 在被选元素之前插入内容
+				例：$("img").before("在前面添加文本");
+				
+		-> 删除元素
+			-> remove()			// 删除被选元素（及其子元素）
+				例：$("#div1").remove();
+			-> empty()			// 从被选元素中删除子元素
+				例：$("#div1").empty();
+				
+				
+		-> 获取并设置 CSS 类	
+			-> addClass()		// 向被选元素添加一个或多个类
+				例：$("h1,h2,p").addClass("blue");	<注意：blue是css样式名>
+					$("body div:first").addClass("important blue");
+			-> removeClass()	// 从被选元素删除一个或多个类
+				例：$("h1,h2,p").removeClass("blue");
+			-> toggleClass()	// 对被选元素进行添加/删除类的切换操作
+				例：$("h1,h2,p").toggleClass("blue");
+			-> css()			// 设置或返回样式属性
+				例：$("p").css("background-color");
+					$("p").css("background-color","yellow");
+	
+	-> 自定义一个jquery工具库
+		var jquery = function (id) {
+			// 封装 获取图层id代码段(实际是将$类当做函数调用)
+			// 使用方法：document.getElementById("btn")	--> $("#btn")
+			if (typeof id == "string") {
+				if(id.charAt(0) == "#"){
+					domObj = document.getElementById(id.substring(1));
+					return new $();
+				}
+			}
+			
+			// 封装 onload加载操作
+			if (typeof id == "function") {
+				window.onload = id;
+			}
+			
+			// 封装innerHTML属性(将后端发送至前端的数据渲染到对应图层)
+			this.innerH = function (s) {
+				domObj.innerHTML = s;
+			};
+
+			// 封装各种事件(实例方法)
+			this.userClick = function (fun) {
+				domObj.onclick = fun;
+			};
+			this.userfocus = function (fun) {
+				domObj.onfocus = fun;
+			};
+			this.userblur = function (fun) {
+				domObj.onblur = fun;
+			};
+
+			this.val = function () {
+				return domObj.value;
+			};
+
+			this.update = function (s) {
+				domObj.value = s;
+			};
+
+			/**
+			 * 分析：该静态方法需要哪些参数
+			 *      type:请求方式
+			 *      uri:请求地址
+			 *      tbyb:同步(true)后者异步(false)
+			 *      data:请求信息
+			 *      success:拿到响应数据后，一般会进行处理然后展示到页面上，所以此处传入一个function
+			 *      // 调用者希望传入一个json字符串将这些参数传入到方法中
+			 */
+			// 封装ajax发送请求步骤(静态方法)
+			jquery.ajax = function (jsonArgs) {
+
+				// 创建对象
+				var xhr = new XMLHttpRequest();
+
+				// 注册回调函数
+				xhr.onreadystatechange = function () {
+					if (this.readyState == 4) {
+						if (this.status == 200) {
+							// 此处只处理服务器返回的json格式字符串
+							var jsonObj = JSON.parse(this.responseText);
+							// 渲染到指定图层上(传入的是json对象)
+							jsonArgs.success(jsonObj);
+
+						}else{
+							console.log(this.status);
+						}
+					}
+				};
+				if (jsonArgs.type.toUpperCase() == "POST") {
+					// 打开连接
+					xhr.open("post", jsonArgs.uri, jsonArgs.tbyb)
+					// 发送请求
+					xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+					xhr.send(jsonArgs.data);
+				}
+
+				if (jsonArgs.type.toUpperCase() == "GET") {
+					// 打开连接
+					xhr.open("get", jsonArgs.uri + "?" + jsonArgs.data, jsonArgs.tbyb)
+					// 发送请求
+					xhr.open()
+				}
+			}
+		};
+		// 将jquery对象名换成$
+		$ = jquery;
+		// 预先创建一个jquery对象，防止静态方法不能调用。
+		new jquery();
+		
+		
+	-> 使用上面自定义的jquery做ajax请求
+		$(function () {
+			$("#btn").userClick(
+				function () {
+					// var value = document.getElementById("username").value;
+
+					var value = $("#username").val();
+					// 使用封装好的ajax方法发送ajax请求
+					$.ajax({
+						type:"post",
+						uri:"/servlet08/ajax08",
+						tbyb:true,
+						data:"username=" + value,
+						success:function (json) {
+							// 从处理过的json对象中取username对应的value，注意username是服务器中的key值
+							// document.getElementById("mydiv").innerHTML = json.username;
+							$("#mydiv").innerH(json.username);
+						}
+					})
+				}
+			)
+		})
+	
+	
+-> ajax跨域问题
+	-> 什么是跨域问题？
+		CORS全称Cross-Origin Resource Sharing，意为跨域资源共享。当一个资源去访问另一个不同域名或者同域名不同端口的资源时，就会发生跨域请求。
+		如果此时另一个资源不允许其进行跨域资源访问，那么访问就会遇到跨域问题。
+
+		跨域指的是浏览器不能执行其它网站的脚本。是由浏览器的同源策略造成的，是浏览器对JavaScript施加的安全限制。
+	
+	-> 同源策略
+		浏览器要求，在解析Ajax请求时，要求浏览器的路径与Ajax请求的路径必须满足三个要求，则满足同源策略，可以访问服务器。
+		协议、域名、端口号都相同，只要有一个不相同，那么都是非同源。
+	
+	-> 解决方案
+		-> 设置CORS响应头
+			// CORS是通过设置一个响应头来告诉浏览器，该请求允许跨域，浏览器收到该响应以后就会对响应放行。
+			设置响应头：
+				// 允许某个
+				response.setHeader('Access-Control-Allow-Origin', 'http//locathost:8081');
+				// 设置任何网页可以给我们发送请求
+				response.setHeader('Access-Control-Allow-Origin', '*');
+				// 设置哪些头部信息可以暴露
+				response.setHeader('Access-Control-Allow-Headers', '*');
+				// 设置请求允许的方法，默认是GET和POST
+				response.setHeader('Access-Control-Allow-Method', '*');
+				
+		-> jsonp
+			-> 概念：
+				允许用户传递一个callback参数给服务端，然后服务端返回数据时会将这个callback参数作为函数名来包裹住JSON数据，
+				这样客户端就可以随意定制自己的函数来自动处理返回数据了。
+			-> 优点：
+				XMLHttpRequest对象实现的Ajax请求那样受到同源策略的限制，但是json则不被限制。
+			-> 为什么json不被限制
+				
+				原理：
+					// 首先在网页中点击超链接完全可以自由的访问不同域中的资源，这是因为<a>标签不受同源策略的影响。
+					// <script> 标签也不受同源策略的限制的，它的src可以载入任意地方的JavaScript文件，甚至servlet路径资源。
+					<步骤>
+					// 前端与服务端约定好一个函数名，当我请求文件的时候，服务端返回一段JavaScript。
+					// 这段 JavaScript 调用了我们约定好的函数，并且将数据当做参数传入。
+					// 非常巧合的一点（其实并不是），JSON 的数据格式和 JavaScript 语言里对象的格式正好相同。
+					// 所以在我们约定的函数里面可以直接使用这个对象。
+						例：
+							前端定义一个doSome(参数)函数，将函数名当做请求信息发送给服务器，服务器out.print("doSome(数据)")返回给前端数据。
+							参数必须是json字符串数据。
+							<注意：跨域访问的资源响应的实际是javascript脚本，相当于放在发送请求的那个javascript脚本块中。
+								所以，若服务端返回的是调用函数的脚本，则被调函数一定要放在当前script标签上面，否则报错>
+							
+							如何让jsonp向ajax一样局部刷新？
+									上面服务端直接返回了一个调用函数的脚本，所以被调用函数的形参可以接收服务端返回的json数据，在这个函数里面
+								将数据进行处理并渲染到图层中。
+					-> 注意：
+						// 跨域服务端返回的必须是JavaScript脚本(在jsonp中实际是一个调用函数语句，并且参数必须是json字符串)；
+						// jsonp只能在src后面添加函数名请求信息，所以只支持get请求。
+							
+			-> 上面的原理中虽然实现了跨域与局部刷新效果，但是接收服务端的script标签必须放在所有script标签下面，并且创建的script标签太多。
+			
+			如何在一个script标签中实现跨域请求与局部刷新效果？
+				方法：在script标签中创建script标签。
+					// 创建script元素
+					const eleScript = document.createElement("script");
+					// 设置script元素type属性
+					eleScript.type = "text/javascript";  
+					// 设置script元素的src属性(doSome是函数名)
+					eleScript.src = "http://localhost:8081/b/jsonptest01?fun=doSome"; 
+					// 将script元素对象添加到body标签中(这一步就是加载script标签)
+					document.getElementsByTagName("body")[0].appendChild(eleScript);
+				
+				使用jquery封装上面的代码
+					$.ajax({
+						url: "http://localhost:8081/b/jsonptest01",  
+						type: "GET",				请求类型	  
+						dataType: "jsonp",      	// 返回值类型
+						jsonp: "fun"				// 请求中携带的参数名称
+						jsonpCallback: "doSome",  	// 请求中携带的参数值(实际就是被调函数名)
+						success: function (data){		// data就是被调函数中的形参，用来接收服务端调用函数中的实际参数
+							$("mydiv").html(data.name)	// data.name就是访问json对象中的name对应值
+						}
+					})
+					// 如果不写jsonp与jsonpCallback这两个参数，浏览会自动生成一对请求参数放在请求后面。
+					<这实际上就是script标签中为何可以访问资源的原理。>
+			
+			
+		-> 代理机制
+			跨域访问是直接使用a站点中的前端请求，去访问b站点的servlet资源。
+			<代理机制：在a站点中创建一个servlet资源，让这个servlet资源去给b站点发送请求，
+						然后b站点资源响应给a站点的servlet资源，然后再响应给浏览器>
+			
+			java程序怎样跨域发送get/post请求？
+				方案一：使用JDK内置API
+				方案二：使用第三方开源组件(httpclient组件)<常用>
+					httpclient组件：
+							commons-codec-1.4.jar
+							commons-httpclient-3.1.jar
+							commons-logging-1.2.jar
+							httpclient-4.5.13.jar
+							httpcore-4.4.13.jar
+						
+				方案二例：
+					<以下代码是在a站点创建的一个servlet资源，a站点前端发送请求访问这个资源，然后该资源发送给目标地址资源请求，
+					b站点的目标资源响应给这个a站点的servlet资源，然后这个资源再响应给前端>
+					// 只需要修改目标站点资源地址
+					// 目标地址
+					String url = "http://localhost:8081/b//bDaiLi";
+					HttpGet httpGet = new HttpGet(url);
+					// 设置类型
+					httpGet.setHeader("Content-Type", "application/x-www-form-urlencoded");
+					// httpClient实例化
+					CloseableHttpClient httpClient = HttpClients.createDefault();
+					// 执行请求并获取返回
+					CloseableHttpResponse resp = httpClient.execute(httpGet);
+					HttpEntity entity = resp.getEntity();
+					// 显示结果
+					BufferedReader reader = new BufferedReader(new InputStreamReader(entity.getContent(), "UTF-8"));
+					String line = null;
+					StringBuffer responseSB = new StringBuffer();
+					while ((line = reader.readLine()) != null) {
+						responseSB.append(line);
+					}
+					// System.out.println("返回消息：" + responseSB);
+					reader.close();
+					httpClient.close();
+					
+					// 打印到浏览器
+					response.setContentType("text/html;charset=UTF-8");
+					response.getWriter().print(responseSB);
+				
+				
+				
+				
+				
+				
+	

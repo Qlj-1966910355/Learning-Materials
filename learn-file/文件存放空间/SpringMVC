@@ -1,0 +1,793 @@
+-> SpringMVC简介
+	基于MVC开发模式的框架，用来优化控制器。它是Spring家族的一员。也具备IOC和AOP。
+	
+	MVC开发模式
+		一种软件设计规范。
+		M(模型层)：包含实体类、业务逻辑层、数据访问层。完成具体的业务操作，如L查询数据库，封装对象
+		V(视图层)：html、JavaScript、Vue等都是视图层。用来呈现数据的
+		C(控制器)：用来接收客户端发送的请求，并返回响应到客户端，Servlet组件。
+	
+	SpringMVC的优点
+		1、轻量级，基于MVC框架
+		2、易于上手，容易理解，功能强大
+		3、具备IOC与AOP
+		4、完全基于注解开发
+		
+-> SpringMVC在接收到请求后，主要是按照以下的流程处理并响应请求的。
+
+	（1）客户端发起Http请求，web应用服务器（如Tomcat）接收到请求后，如果请求格式匹配web.xml中配置的DispatcherServlet拦截请求格式（如*.action），
+		那么web服务器将会把该请求转交给DispatcherServlet进行处理。
+
+	（2）DispatcherServlet接收到请求后，会根据请求的信息（如URL，请求方法等）从HandlerMapping中找到处理对应请求的处理器（Handler）。
+
+	（3）DispatcherServlet会将HandlerMapping返回的Handler交给HandlerAdapter进行包装。再统一由HandlerAdapter的适配器接口实现类通过接口实现调用
+		Handler（具体HandlerAdapter如何实现利用适配器接口调用Handler后续会进行分析）。
+
+	（4）Handler处理完请求对应的业务逻辑后会返回ModleAndView给DispatcherServlet。其中ModleAndView包含Handler处理后返回的逻辑视图名以及数据对象。
+
+	（5）DispatcherServlet利用ModleAndView中的逻辑视图名通过ViewResolver解析到真正的视图对象View。
+
+	（6）DispatcherServlet获取到视图对象View后，会整合ModleAndView中的数据对象Modle进行视图渲染。
+
+	（7）渲染完成后返回客户端响应信息。
+		
+-> 基于注解的SpringMVC框架的开发步骤
+	1、新建项目，选择webapp模板
+		模板：maven-archetype-webapp
+	2、修改目录，添加缺失的test、java、resources，修改目录属性
+		目录结构：
+				创建web项目后的目录中只有main目录与pom.xml文件，main文件中存有webapp-->WEB-INF-->web.xml
+			新增：
+				main--> java + resources
+				test--> java + resources
+			最后进行标记。
+	3、修改pom.xml文件，添加SpringMVC的依赖，添加Servlet依赖
+		
+		<!--添加springmvc依赖-->
+		<dependency>
+		  <groupId>org.springframework</groupId>
+		  <artifactId>spring-webmvc</artifactId>
+		  <version>5.2.9.RELEASE</version>
+		</dependency>
+		<!--添加servlet依赖-->
+		<dependency>
+			<groupId>javax.servlet</groupId>
+			<artifactId>javax.servlet-api</artifactId>
+			<version>3.1.0</version>
+		</dependency>
+		
+		<build>
+			<resources>
+			  <resource>
+				<directory>src/main/java</directory>
+				<includes>
+				  <include>**/*.xml</include>
+				  <include>**/*.properties</include>
+				</includes>
+			  </resource>
+
+			  <resource>
+				<directory>src/main/resources</directory>
+				<includes>
+				  <include>**/*.xml</include>
+				  <include>**/*.properties</include>
+				</includes>
+			  </resource>
+			</resources>
+		</build>
+
+	4、添加springmvc.xml配置文件，指定包扫描，添加视图解析器
+		配置文件:
+			添加位置：
+				java--> resources--> springmvc.xml
+			怎样添加：
+				右键新建--> XML Configuration File--> Spring Config
+				
+		包扫描配置：
+			<!--添加包扫描-->
+			<context:component-scan base-package="com.sg.controller"></context:component-scan>
+		视图解析器配置：
+			<!--添加视图解析器-->
+			<bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+				<!--配置前缀-->
+				<property name="prefix" value="/admin/"></property>
+				<!--配置后缀-->
+				<property name="suffix" value=".jsp"></property>
+			</bean>
+			
+	5、删除web.xml文件，新建web.xml
+		<如果觉得web.xml版本低，可按照下面步骤修改版本>
+		先删除目录中的web.xml文件--> 点击项目结构--> Modules--> Web--> 点击右侧'-'
+		--> 删除后选择'+'-->修改web.xml文件名称再确定-->在目录中将名称改回web.xml
+	6、在web.xml文件中注册springmvc框架(所有的web请求都是基于servlet)
+			<!--注册请求与响应编码-->
+			<filter>
+				<filter-name>zhcode</filter-name>
+				<filter-class>org.springframework.web.filter.CharacterEncodingFilter</filter-class>
+
+				<init-param>
+					<param-name>encoding</param-name>
+					<param-value>UTF-8</param-value>
+				</init-param>
+				<init-param>
+					<param-name>forceRequestEncoding</param-name>
+					<param-value>true</param-value>
+				</init-param>
+				<init-param>
+					<param-name>forceResponseEncoding</param-name>
+					<param-value>true</param-value>
+				</init-param>
+			</filter>
+			<filter-mapping>
+				<filter-name>zhcode</filter-name>
+				<url-pattern>/*</url-pattern>
+			</filter-mapping>
+	
+	
+		    <!--注册springmvc框架-->
+			<servlet>
+				<servlet-name>springmvc</servlet-name>
+				<servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+				<!--初始化信息，配置springmvc配置文件-->
+				<init-param>
+					<param-name>contextConfigLocation</param-name>
+					<param-value>classpath:springmvc.xml</param-value>
+				</init-param>
+			</servlet>
+			<servlet-mapping>
+				<servlet-name>springmvc</servlet-name>
+				<!--注意：DispatcherServlet类只会识别后缀名为action的请求-->
+				<url-pattern>*.action</url-pattern>
+			</servlet-mapping>
+			
+	7、在webapp目录下新建admin目录(与视图解析器配置对应)，在admin目录下新建main.jsp页面，删除index.jsp页面，并新建，发送请求给的服务器
+	8、开发控制器(Servlet)，它是一个普通的类
+		@Controller     // 交给spring创建对象(springmvc也有ioc)
+		public class DemoAction01 {
+			/**
+			 * action中所有的功能实现都是由方法来完成
+			 * action规范：
+			 *      1、访问权限
+			 *      2、方法的返回值任意
+			 *      3、方法名称任意
+			 *      4、方法可以没有参数，如果有可以是任意类型
+			 *      5、必须使用@RequestMapping注解声明一个访问的路径(名称)
+			 */
+			@RequestMapping("/demo")
+			public String demo01(){
+				System.out.println("访问成功！");
+				return "main";      // 可以直接跳转到/admin/main.jsp
+			}
+		}
+	9、添加tomcat进行测试功能
+	
+	
+-> @RequestMapping
+	通过@RequestMapping注解可以定义处理器对于请求的映射规则。该注释可以注解在方法上，也可以注解在类上，意义不同。
+	value属性以‘/’开始，用于定义所匹配请求的URI。
+	1、注解加在方法上
+	例：
+		@RequestMapping("/demo")
+		public String demo01(){
+			System.out.println("访问成功！");
+			return "main";      // 可以直接跳转到/admin/main.jsp
+		}
+	对应于：<a href="${pageContext.request.contextPath}/demo.action">访问服务器</a>
+		// .action是给DispatcherServlet识别用的。
+	
+	2、注解加在类上，相当于包名(虚拟路径)
+		添加在类上面表示定位到具体的包下。(区分不同包下相同的xxx.action名称)
+		例：
+			@Controller
+			@RequestMapping("/package01")
+			public class DemoAction01 {
+				@RequestMapping("/demo")
+				public String demo01(){
+					System.out.println("访问成功！");
+					return "main";      // 可以直接跳转到/admin/main.jsp
+				}
+			}
+			// 在类与方法上都存在@RequestMapping注解，表示访问的资源就是package01包下的demo。
+
+
+-> 如何发送并接收get/post请求？
+	1、编辑发送请求的页面(form表单发送可以发送post请求)
+		注意：form表单的路径
+			<form action="${pageContext.request.contextPath}/demoGet.action" method="get">
+	2、编辑服务器响应jsp页面
+		
+	3、编辑controller中的类方法。
+		-> get请求
+			@RequestMapping(value = "/demoGet", method = RequestMethod.GET)
+			public String getTest(){
+				System.out.println("get请求执行成功！");
+				return "get01";
+			}
+		-> post请求
+		    @RequestMapping(value = "/demoPost", method = RequestMethod.POST)
+			public String postTest(){
+				System.out.println("post请求执行成功！");
+				return "post01";
+			}
+		// 需要注意的是：
+			请求页面发送路径与RequestMapping中的value值对应。return返回的字符串为响应页面的资源名称。
+		
+	
+-> 核心处理器DispatcherServlet
+	DispatcherServlet实质也是一个HttpServlet(继承)。负责将请求分发，所有的请求都有经过它来统一分发。
+	javaWeb中：
+		index.jsp <------> Servlet
+	SpringMVC中：
+		index.jsp <------> DispatcherServlet <------> 项目中普通方法
+	
+		DispatcherServlet是前置控制器，配置在web.xml文件中的。拦截匹配的请求，Servlet拦截匹配规则要自己定义，把拦截下来的请求，
+	依据相应的规则分发到目标Controller来处理，是配置spring MVC的第一步。 DispatcherServlet是前端控制器设计模式的实现，提供
+	Spring Web MVC的集中访问点，而且负责职责的分派，而且与Spring IoC容器无缝集成，从而可以获得Spring的所有好处。
+
+	
+-> 请求数据参数提交方式
+	1、单个数据提交
+		-> 页面提交
+			<%--单个数据提交--%>
+			<form action="${pageContext.request.contextPath}/one.action" method="get">
+				用户：<input type="text" name="user"><br>
+				年龄：<input type="text" name="age"><br>
+				<input type="submit" value="提交">
+			</form>
+		
+		-> Controller接收
+			@RequestMapping("/one")
+			public String doSome01(String user, int age){
+				System.out.println("成功执行并接收参数！");
+				System.out.println(user + ";" + (age + 10));
+				return "main";
+			}
+		
+		注意：
+			// doSome01()方法的形参名称必须与请求时发送数据的name一致，不一致接收不到。
+			// get请求不会有中文乱码问题
+			
+	2、对象封装数据提交
+		在提交请求中，保证请求参数的名称与实体类中成员变量的名称一致，则可以自动提交数据，自动类型转换，自动封装数据到对象中。
+		-> 页面提交
+			<form action="${pageContext.request.contextPath}/two.action" method="get">
+				<%--name的值必须与实体类的属性名称一致--%>
+				用户：<input type="text" name="user"><br>
+				年龄：<input type="text" name="age"><br>
+				<input type="submit" value="提交">
+			</form>
+		
+		-> Controller接收
+			@RequestMapping("/two")
+			public String doSome02(Users user){
+				System.out.println(user);
+				return "main";
+			}
+		
+		注意：
+			// 形参Users是一个实体类，实体类中的属性为user、age，名称必须与页面提交时的name一致
+			// 实体类中必须包含set、get方法
+			// 实体类不需要创建对象(不需要在实体类头上添加注释)
+	
+	3、动态占位符数据提交
+		仅限于超链或地址栏提交数据。
+		-> 页面提交
+			<a href="${pageContext.request.contextPath}/three/张三/23.action">动态占位符提交</a>
+		
+		-> Controller接收
+			@RequestMapping("/three/{user01}/{age}")
+			public String doSome03(
+					@PathVariable("user01")			// 属性可以为其他名称
+					String user,
+					@PathVariable
+					int age
+			){
+				System.out.println("动态获取参数成功！");
+				System.out.println("user=" + user + ";age=" + age);
+				return "main";
+			}
+			
+		注意：
+			// 页面提交时：/three/张三/23.action。
+				three是资源映射名称；张三是传入的参数；23也是传入的参数。
+				<一个斜杠'/'一个值>
+			// Controller中接收时：
+				@RequestMapping("/three/{user}/{age}")
+				<一个斜杠一个大括号占位符{}，用于接收地址栏发送的数据，名称任意>
+			// 数据注册(传入)方法内
+				使用@PathVariable注解进行注册形参。
+				<规范：形参的名称与占位符中的名称一致>
+			
+	4、映射名称不一致提交数据
+		提交请求参数与action方法的形参的名称不一致，使用注解@RequestParam解析
+		-> 页面提交
+			<form action="${pageContext.request.contextPath}/four.action" method="get">
+				<%--name的值必须与实体类的属性名称一致--%>
+				用户：<input type="text" name="user"><br>
+				年龄：<input type="text" name="age"><br>
+				<input type="submit" value="提交">
+			</form>
+		
+		-> Controller接收
+			@RequestMapping("/four")
+			public String doSome04(
+					@RequestParam("user")		// 专门用来解决名称不一致的问题
+					String uuser,
+					@RequestParam("age")
+					int uage
+			){
+				System.out.println("成功执行并接收参数！");
+				System.out.println(uuser + ";" + (uage + 10));
+				return "main";
+			}
+		
+		注意：
+			实际上就是解决了第一种请求参数接收时映射名称不一致的问题，与第三种提交用到的名称不一致注解不一样。
+			
+	5、手工提取数据
+		采用request.getParameter()方式获取数据。
+		-> 页面提交
+		<form action="${pageContext.request.contextPath}/five.action" method="get">
+			<%--name的值必须与实体类的属性名称一致--%>
+			用户：<input type="text" name="user"><br>
+			年龄：<input type="text" name="age"><br>
+			<input type="submit" value="提交">
+		</form>
+			
+		-> Controller接收
+			@RequestMapping("/five")
+			public String doSome05(HttpServletRequest request){
+				String user = request.getParameter("user");
+				int age = Integer.parseInt(request.getParameter("age"));
+				System.out.println("user=" + user + ";age=" + (age + 10));
+				return "main";
+			}
+	
+			
+-> 解决获取请求数据的中文乱码问题(post请求乱码)
+	在web.xml中配置一个过滤器。
+		注意：
+			过滤器一般放在web.xml中的最顶部。
+	配置：
+	    <!--中文编码过滤器配置-->
+		<!--
+			javaweb中
+				处理post请求参数中文乱码：request.setCharacterEncoding("UTF-8");
+				处理响应中文乱码：response.setContentType("text/html";charset=UTF-8);
+		-->
+		<filter>
+			<filter-name>zhcode</filter-name>
+			<filter-class>org.springframework.web.filter.CharacterEncodingFilter</filter-class>
+			
+			<!--初始化参数
+				CharacterEncodingFilter类中需要设置三个属性值。
+				private java.lang.String encoding;          // 编码类型
+				private boolean forceRequestEncoding;       // 请求编码转化
+				private boolean forceResponseEncoding;      // 响应编码转化
+				实际该类底层过滤器的doFilter()方法中就是使用的setCharacterEncoding()方法。
+			-->
+			<init-param>
+				<param-name>encoding</param-name>
+				<param-value>UTF-8</param-value>
+			</init-param>
+			<init-param>
+				<param-name>forceRequestEncoding</param-name>
+				<param-value>true</param-value>
+			</init-param>
+			<init-param>
+				<param-name>forceResponseEncoding</param-name>
+				<param-value>true</param-value>
+			</init-param>
+		</filter>
+		
+		<filter-mapping>
+			<filter-name>zhcode</filter-name>
+			<url-pattern>/*</url-pattern>
+		</filter-mapping>
+			
+
+-> 关于action方法的返回值
+	例：使用String类型的返回值类型
+		@Controller
+		public class Controller01 {
+			@RequestMapping("/one")
+			public String doSome01(String user, int age){
+				
+				return "main";
+			}
+		}	
+			
+	1、String返回类型
+		客户端资源的地址，自动拼接前缀与后缀(springmvc.xml中配置)。或者还可以屏蔽自动拼接字符串，可以指定返回的路径。
+		
+	2、Object返回类型
+		返回json格式的对象。自动将对象或集合转为json。使用的jackson工具进行转换，必须要添加jackson依赖，一般ajax使用较多。
+	
+	3、void类型
+		无返回值。一般用于ajax请求。
+		
+	4、8种基本数据类型
+		用于ajax。
+	
+	5、ModelAndView类型
+		返回数据和视图对象，用的很少。
+		
+-> Ajax请求访问
+	步骤：
+		<前面步骤基本与SpringMVC步骤一致>
+			注意：
+				使用ajax请求时不需要在springmvc.xml中配置视图解析器。
+				但是必须要添加注解驱动，专门用于处理ajax请求。
+		1、添加jackson依赖
+			<!--添加jackson依赖-->
+			<dependency>
+			  <groupId>com.fasterxml.jackson.core</groupId>
+			  <artifactId>jackson-databind</artifactId>
+			  <version>2.10.1</version>
+			</dependency>
+		2、在webapp下创建js目录，导入jQuery函数库
+		3、在index.jsp页面导入jquery
+		4、在action上添加注解@ResponseBody，用于处理ajax请求
+		5、在springmvc.xml中添加注解驱动<mvc:annotation-driven/>，用来@ResponseBody注解。
+			<mvc:annotation-driven></mvc:annotation-driven>
+			注意：此标签较多，后缀必须是mvc的包名
+			
+		例：
+			-> 前端jsp
+				function showStu() {
+					// 使用ajax封装的ajax()发送请求
+					$.ajax({
+						// 请求地址
+						url:"${pageContext.request.contextPath}/list.action",
+						// 请求类型
+						type:"get",
+						// 响应返回值类型
+						dataType:"json",
+						success:function (stuList) {
+							var s = "";
+							$.each(stuList, function (i, stu) {
+								s += stu.name + "----" + stu.age + "<br>";
+							});
+							// 回显数据
+							$("#div01").html(s);
+						}
+					})
+				}
+			-> 后端controller中的action方法资源
+				@RequestMapping("/list")
+				@ResponseBody       // 解析ajax请求，必须要在springmvc.xml文件中配置驱动
+				public List<Student> list(){
+					List<Student> mylist = new ArrayList<>();
+					Student s01 = new Student("张三", 23);
+					Student s02 = new Student("李四", 22);
+					Student s03 = new Student("王五", 24);
+					Collections.addAll(mylist, s01, s02, s03);
+					return mylist;     // SpringMVC负责将集合转化为json数组
+				}
+			
+	
+-> SpringMVC请求转发与重定向
+		下面案例主要介绍转发到action方法资源与jsp资源。
+	重点：
+		1、在springmvc.xml中配置了视图解析器时，则所有的action资源方法返回时都会进行字符串拼接。
+			例：/admin/main.jsp
+		2、如何在配置了视图解析器的情况下不使用视图解析器拼接？
+			视图解析器org.springframework.web.servlet.view.InternalResourceViewResolver，这个类继承了UrlBasedViewResolver类
+			UrlBasedViewResolver类有两个常量：
+				// 请求转发
+			    public static final java.lang.String REDIRECT_URL_PREFIX = "redirect:";
+				// 重定向
+				public static final java.lang.String FORWARD_URL_PREFIX = "forward:";
+			注：
+				1、当action资源方法返回值中包含使用了这两个常量，则就会屏蔽视图解析器进行拼串，这时只能手动进行拼串操作。
+					例：return "forward:/move.action"
+				2、return "main";默认使用的是请求转发操作，但返回值并没有上面的关键字，所以也会使用视图解析器进行拼接。
+		3、配置视图解析器时指定了前缀与后缀，所以自动拼接的地址只能是admin目录下的资源。
+			<如果资源并不存储在admin下且不是.jsp文件，可以使用'forward:'进行修饰，屏蔽视图解析器>
+			
+	实现步骤：
+		-> 前端请求
+			<!-- 普通请求(非ajax) -->
+			<a href="${pageContext.request.contextPath}/one.action">1、请求转发页面</a><br>
+			<a href="${pageContext.request.contextPath}/two.action">2、请求转发action资源</a><br>
+			<a href="${pageContext.request.contextPath}/three.action">3、重定向页面</a><br>
+			<a href="${pageContext.request.contextPath}/four.action">4、重定向action资源</a>
+			
+		-> 后端资源action
+			1、请求转发页面
+				// 执行顺序：前端mvc01请求(.action)--> 当前action--> 转发到/admin/main.jsp
+				@RequestMapping("/one")			// 映射：前端请求路径与该资源做映射
+				public String actionOne(){
+					System.out.println("请求转发页面！");
+					return "main";          // 默认请求转发，使用视图解析器拼接前缀后缀进行页面跳转
+				}
+			2、请求转发到action资源
+				// 执行顺序：前端mvc01请求(.action)--> 当前action--> 转发到对应路径的move.action--> 转发到/admin/main.jsp
+				@RequestMapping("/two")
+				public String actionTwo(){
+					System.out.println("请求转发到action资源！");
+					return "forward:/move.action";      // 注意;使用forward后，屏蔽视图解析器，通过RequestMapping("/move")地址对应访问的资源。
+				}
+			
+			3、重定向页面
+				// 执行顺序：前端mvc01请求(.action)--> 当前action ===重定向==> /admin/main.jsp
+				@RequestMapping("/three")
+				public String actionThree(){
+					System.out.println("重定向页面");
+					return "redirect:/admin/main.jsp";
+				}
+			4、重定向action资源
+				// 执行顺序：前端mvc01请求(.action)--> 当前action ===重定向==> 对应路径的move.action--> /admin/main.jsp
+				@RequestMapping("/four")
+				public String actionFour(){
+					System.out.println("重定向action资源！");
+					return "redirect:/move.action";
+				}
+			
+		-> 新建资源
+			1、页面资源(.jsp)
+				在webapp根目录下新建admin目录，新建main.jsp文件
+
+			2、action资源
+				action资源就是普通类中的一个action方法。
+					<下面案例被定义在TestController02类中>
+					例：
+						// 注意：这个action资源映射地址是/move，并且return返回是"main"，使用了视图解析器拼接地址
+						@RequestMapping("/move")
+						public String testAction(){
+							System.out.println("转发到action成功!");
+							return "main";			// 拼接为:" /admin/main.jsp "
+						}
+	
+	
+-> SpringMVC响应参数传递
+	
+	-> SpringMVC默认参数类型
+		<不需要创建对象，直接可以使用>
+			// HttpServletRequest
+			// HttpServletResponse
+			// HttpSession
+			// Model
+			// Map
+			// ModelMap
+			<Model、Map、ModelMap与request域作用一样，存取方法一致>
+			
+		作用：
+			前端请求数据参数提交给action是通过action方法的形参值进行接收的，此时接收到前端的数据后，可以储存在这些作用域中。
+			储存后，请求转发给其他jsp页面或者action资源，jsp资源可以使用EL表达式取出存入作用域中的数据，action资源可以根据
+			请求转发继续使用方法形参获取请求参数。
+			
+		注意：javaweb中，在使用jsp作为前端页面资源时，要想从jsp发送请求数据到servlet中或从servlet中响应给jsp前端数据，会使用四大域对象。
+			例：
+				jsp --> servlet
+					将发送的请求数据放在请求地址后，在servlet中直接使用getParameter()方法进行获取。
+				servlet --> jsp
+					后端将数据存储在request域或者session域中，而jsp实际为就是servlet资源，直接使用getAttribute()方法获取后端数据。
+	
+	-> 请求与响应的参数传递
+		注意：
+			-> 此时使用的前端文件依然是jsp，完全可以使用四大域存取参数；
+
+		1、前端页面
+			<a href="${pageContext.request.contextPath}/data.action?name=117100305">数据传输</a>
+		2、action资源方法
+			@RequestMapping("/data")
+			public String actionTest01(
+					HttpServletRequest request,
+					HttpServletResponse response,
+					HttpSession session,
+					Model model,
+					Map map,
+					ModelMap modelMap
+			){
+				// 存储数据
+				request.setAttribute("requestStu", new Student("qlj", "xatu", "weinan"));
+				session.setAttribute("sessionStu", new Student("wzx", "xatu", "xian"));
+				model.addAttribute("modelStu", new Student("xjq", "xatu", "weinan"));
+				map.put("mapStu", new Student("xyq","xatu","linfen"));
+				modelMap.addAttribute("modelMapStu", new Student("py", "xatu", "xian"));
+
+				return "doMain";			// 此处请求转发到/admin/doMain.jsp上
+			}
+		3、doMain.jsp文件
+			注意：此时实际就是后端的action资源响应到前端页面上。
+				<!--使用EL表达式从域中直接取出参数-->
+				request：${requestStu}<br>				// 同一请求才能取出
+				session：${sessionStu}<br>
+				model：${modelStu}<br>					// 同一请求才能取出
+				map：${mapStu}<br>						// 同一请求才能取出
+				modelMap：${modelMapStu}<br>			// 同一请求才能取出
+				
+				<%--
+					注意：
+						1、该参数是通过EL表达式取出，相当于<%=request.getParameter("username")%> 
+						2、由于action中return实际是请求转发操作，同一次请求访问到doMain.jsp，所以直接使用getParameter取出参数。
+							<实际上jsp是servlet，所以才可以用getParameter取数据，重定向就不可以getParameter取出数据>
+				--%>
+				mvc02.jsp传送的参数:${param.name}
+	
+-> 日期注入处理
+	当前端传入日期参数，如何在action中获取请求的日期参数，并转发给其他jsp资源展示。
+	action资源方法获取前端日期参数
+	
+	-> 单个action资源日期处理：
+		-> 前端jsp
+			<form action="${pageContext.request.contextPath}/date.action">
+			日期1：<input type="date" name="riqi">
+			<input type="submit" value="提交">
+		
+		-> action资源
+			// 成员变量日期格式化对象
+			private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+
+			@RequestMapping("/date")
+			public String dateAction(
+					@DateTimeFormat(pattern = "yyyy-MM-dd")
+					Date riqi){              	// 注意：不能直接使用Date类型接收数据，直接接收只能使用String接收
+				
+				System.out.println(riqi);		// 输出：Thu Jul 07 00:00:00 CST 2022
+				// 格式化显示日期
+				String date = dateFormat.format(riqi);
+				System.out.println(date);		// 输出：2022-07-07		实际最终还是String类型
+				return "main";
+			}
+		注意：	/**
+				 * 如何使用Date类型接收前端的日期？
+				 *      使用@DateTimeFormat(pattern = "yyyy-MM-dd")
+				 *      形参得到前端的数据后，实际类型为Date类型。
+				 *          重点：使用@DateTimeFormat时需要在springmvc.xml中配置<mvc:annotation-driven></mvc:annotation-driven>注解驱动
+				 */
+	-> 全局action资源日期的处理
+		-> 前端jsp
+		    <form action="${pageContext.request.contextPath}/date1.action">
+				日期2：<input type="date" name="riqi01">
+				<input type="submit" value="提交">
+			</form>
+		
+		-> action资源
+			// 成员变量日期格式化对象
+			private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+		
+			// 当前类中全局日期的处理(不需要添加注解驱动)
+			@InitBinder
+			public void initBinder(WebDataBinder dataBinder){
+				dataBinder.registerCustomEditor(
+						Date.class,									// 转换的类型
+						new CustomDateEditor(dateFormat, true)		// 转换工具：dateFormat是格式化对象，true允许为空
+				);
+			}
+
+			@RequestMapping("/date1")
+			public String dateAction02(Date riqi01){
+				System.out.println(riqi01);							// 输出：Tue Jun 28 00:00:00 CST 2022
+				System.out.println(dateFormat.format(riqi01));		// 输出：2022-06-28
+				return "main";
+			}
+			
+-> <mvc:annotation-driven></mvc:annotation-driven>标签(ajax使用过)
+	<mvc:annotation-driven>会自动注册两bean，分别是：
+											DefaultAnnotationHandlerMapping
+											AnnotationMethodHandlerAdapter
+		是springmvc为@Controller分发请求所必须的。
+	作用：
+		1、支持使用ConversionService实例对表单参数进行类型转换(一般不用)
+		2、支持使用@NumberFormat、@DataTimeFormat(数字、日期格式化)
+		3、注解完成数据类型的格式化
+		4、支持使用@RequestBody和@ResponseBody注解(ajax处理)
+		5、静态资源的分流使用该标签
+
+-> 使用请求转发访问WEB-INF下获取资源
+	在WEB-INF下存储的资源是被保护的，直接从浏览输入地址访问不能成功。
+	<实际上是让客户端不能直接访问资源，必须通过action进行控制管理，然后再访问。>
+	解决方案：
+		<使用action资源请求转发到WEB-INF中的jsp资源>
+	如何实现：
+		1、修改视图解析器拼串的前后缀
+				<!--前缀-->
+				<property name="prefix" value="/WEB-INF/admin/"></property>
+				<!--后缀-->
+				<property name="suffix" value=".jsp"></property>
+			例：
+				/WEB-INF/admin/${main}.jsp			// ${}在此处只是占位符，实际拼串并没有。
+			
+		2、注意：
+			action资源的返回值必须是请求转发，使用视图解析器时不能使用'redirect:'关键字。
+		
+-> 去除访问地址时必须添加的.action
+	场景：
+		前面之所以必须使用.action访问资源是因为；
+			在web.xml中注册springmvc框架时，直接配置了'*.action' 
+														表示：只有当访问地址后缀为.action时才可以使用SpringMVC中的DispatcherServlet类
+		
+	去除.action后缀访问的方法：
+			<!--注册springmvc框架-->
+			<servlet>
+				<servlet-name>springmvc</servlet-name>
+				<servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+				<init-param>
+					<param-name>contextConfigLocation</param-name>
+					<param-value>classpath:springmvc.xml</param-value>
+				</init-param>
+			</servlet>
+			<servlet-mapping>
+				<servlet-name>springmvc</servlet-name>
+				<url-pattern>/</url-pattern>
+			</servlet-mapping>
+		注:
+			将<url-pattern>标签中的地址修改为'/'根目录即可。意思是只要访问地址中有根目录就可以使用DispatcherServlet类。
+			<这种形式访问时先访问同uri下没有后缀名的映射资源，然后再访问同名存在action后缀的资源>
+	缺点：
+		在浏览器地址栏输入action资源的映射地址时依然可以访问到。
+	优化：
+		添加控制权限验证(类似登录访问)。
+	
+-> SpringMVC拦截器
+	针对请求和响应的额外处理，在请求和响应的过程中添加预处理，后处理和最终处理。
+
+	-> 拦截器执行时机
+		1、preHandle()			// 可以拦截请求实现登录处理
+			controller控制器的方法执行之前执行preHandle()，即请求被处理前执行(预处理)
+			返回值；boolean，表示是否拦截或放行。返回true为放行，即调用控制器方法；返回false表示拦截，即不调用控制器方法
+		2、postHandle()
+			控制器方法执行之后执行postHandle()。即请求被处理后，但并没有渲染前进行操作，可以改变响应结果(后处理)。
+		3、afterComplation()
+			处理完视图和模型数据，渲染视图完毕之后执行afterComplation()，即请求与响应结束后执行方法(最终处理)。
+	
+	-> 拦截器实现方式
+		1、继承HandlerInterceptorAdapter父类
+		2、实现HandlerInterceptor接口，一般都会使用接口方式实现。
+	
+
+	-> 拦截器实现步骤
+		1、改造登录功能<添加session>
+			    @RequestMapping(value = "/doLogin", method = RequestMethod.POST)
+				public String login(String user, String password, HttpServletRequest request){
+					if ("qlj".equalsIgnoreCase(user) && "123456".equalsIgnoreCase(password)){
+						request.getSession().setAttribute("user", user);
+						return "main";
+					}else {
+						// 登录错误跳回login页面，并且在request域中存储错误信息，供jsp获取并显示错误信息
+						request.setAttribute("error", "密码不正确，登录失败！");
+						return "login";
+					}
+				}
+			注意：在session域中添加元素用于拦截判断是否真正登录成功(权限验证)。
+			
+		2、开发拦截器功能，实现HandlerInterceptor接口中的preHandle()方法，拦截请求。
+				public class InterceptController implements HandlerInterceptor{
+					// 请求处理前拦截
+					@Override
+					public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+						if (request.getSession(false).getAttribute("user") != null){
+							// 登录成功，拦截放行
+							return true;
+						}else{
+							// 登录失败，进行拦截
+							request.setAttribute("error", "密码不正确，登录失败！");
+							// 请求转发
+							request.getRequestDispatcher("/WEB-INF/admin/login.jsp").forward(request, response);
+							return false;
+						}
+					}
+				}
+			注：拦截器类必须在springmvc内进行配置对象(IOC)，不能在头部添加注释@Controller
+			
+		3、在springmvc.xml中配置哪些请求被拦截。
+			    <!--注册拦截器配置-->
+				<mvc:interceptors>
+					<mvc:interceptor>
+						<!--映射需要拦截的请求-->
+						<mvc:mapping path="/*"/>
+						<!--设置不被拦截的请求-->
+						<mvc:exclude-mapping path="/index"></mvc:exclude-mapping>
+						<mvc:exclude-mapping path="/showLogin"></mvc:exclude-mapping>
+						<mvc:exclude-mapping path="/doLogin"></mvc:exclude-mapping>
+						<!--配置拦截器实现功能的类-->
+						<bean class="com.sg.controller.InterceptController"></bean>
+					</mvc:interceptor>
+					<!--下面可以配置多个拦截器-->
+				</mvc:interceptors>
+	
+	
+	
+	

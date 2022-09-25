@@ -1,0 +1,30 @@
+// JavaScript
+
+var widgetNames = ['area', 'stuff'];
+//定义数组存放控件名称。
+function getWidgetValueByName(name) {
+	var widget = _g().parameterEl.getWidgetByName(name); 			// _g().parameterEl 获取报表对象的参数界面		// parameterEl.getWidgetByName(name)	获取参数面板控件
+	//根据控件名获取控件值	
+	if (widget == undefined) return;	
+	var obj = {};	
+	obj[name] = widget.getValue();	
+	return obj; 	
+	//返回控件值组成的数组
+}//将参数拼接起来，若新增参数，直接 widgetNames中此增加控件名即可，此处无需修改。
+var paramJson = widgetNames.map(getWidgetValueByName).reduce(function(a, b) {				
+								// widgetNames.map(getWidgetValueByName)   返回一个参数值组成的数组
+								// array.reduce(function(total,currentValue))    接收一个函数累加器。total：初始值/计算结束后的返回值；currentValue：当前元素	。例：['a','b','c','d']，total：'a'；currentValue：'b'
+	return Object.assign(a, b)			// Object.assign(a, b)		将所有可枚举属性的值从一个或多个源对象复制到目标对象。返回目标对象。a表示目标对象；b表示源对象
+});
+var paramJsonStr = JSON.stringify(paramJson);
+//将JSON数据转换为字符串
+var col = this.options.form.getWidgetByName("col").getValue();
+//alert(col);
+//参数进行URL编码
+var colNames = encodeURIComponent(col);
+//var colNames = encodeURIComponent("地区,销售员,产品类型,产品,销量")
+//指定导出的数据列，导出字段按此顺序排列，为空默认导出所有
+//调用导出接口
+//console.log(paramJsonStr);
+//console.log(colNames);
+_g().directExportToExcel("ds1", "销量", encodeURIComponent(paramJsonStr), colNames)

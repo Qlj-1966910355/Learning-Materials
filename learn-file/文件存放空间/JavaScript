@@ -1,0 +1,602 @@
+-> JS概念
+	javascript包括三块：
+		ECMAScript:JS核心语法
+		DOM:文档对象模型；对网页当中的节点进行增删改的过程。<html文档被当做一颗dom树看待>
+			eg:var domObj = document.getElementById("id");
+		BOM:浏览器对象模型
+			eg:关闭浏览器窗口、打开新的浏览器窗口、后退、前进、浏览器地址栏的地址等，都是bom编程
+			
+	DOM与BOM的区别与联系：
+		DOM的顶级对象是document
+		BOM的顶级对象是window
+		实际上BOM是包括DOM的
+		
+-> html打印输出
+	-> 打印到浏览器页面
+		document.write()
+	-> 打印到浏览器提示框
+		window.alert()
+	-> 打印到浏览控制台(js打印)
+		console.log()
+
+
+->js代码的使用
+	1、行内式
+		在句柄后执行：onclick="window.alert('确认失败!')"
+		例：<inputtype="button"value="确认"onclick="window.alert('确认失败!')"/>
+	2、内嵌代码块
+		在html中写<scripttype="text/javascript">js代码块</script>
+		例：	<scripttype="text/javascript">
+					alert("下一步")
+				</script>
+		//脚本块可以出现在html的任何位置，并且遵循自上而下执行顺序
+	3、外联js文件
+		新建js为后缀的JavaScript文件，然后引入到html中。
+		例：引入
+			<scripttype="text/javascript"src="js/js01.js"></script>
+			//引入js文件时不能在标签内编写内容，但可以在引入下面再继续写脚本块
+	注意：js代码遵循自上而下顺序逐行执行
+	
+->变量
+	声明语法：var变量名;
+	赋值：
+		变量名=值;<变量是任意类型，可以赋任意类型的值>
+		不赋值时默认为undefined
+	例：vari=100;i='qqq';i=1.23;i=true;
+	
+	->全局变量：在函数体外声明的变量属于全局变量（全局变量声明可以不用var，直接赋值也行，一般不用）
+		生命周期：浏览器打开时声明，浏览器关闭时销毁，尽量少用。(全局变量会一直在浏览器内存当中，耗费内存)
+	->局部变量：在函数体内声明的变量（包括形参）
+		生命周期：函数开始执行时开辟内存空间，函数执行后释放局部变量。
+	例：
+			vari=10;				//全局变量
+			k=12;					//全局变量
+			functionnum(){
+				varj=11;			//局部变量
+				alert("访问全局变量："+i);
+			}
+	注意：
+		如果一个变量未使用var声明，直接赋值，该变量必为全局变量
+		即使在函数体内，也是全局变量(前提：必须先调用运行了函数，函数运行结束，不会清理该变量)
+		例：
+			functionsum(){
+				num=1111111;			//局部变量(实际是全局的)
+			}
+			sum();						//先调用函数，才能出现下面的效果
+			alert("num="+num);		//返回值：1111111
+			//在函数体外依然可以调用num变量
+			
+	-> ES2015(ES6) JavaScript 关键字: let 和 const。
+		-> JavaScript的作用域
+			ES6前：JavaScript只有两种作用域：全局变量与函数内的局部变量(注意：区别在于函数体外与函数体内)
+				// 使用var定义变量时，可以在除去函数内部不能在外部访问，其他的{}块中的var定义变量，在{}外依然可以访问到。
+					例如：在for循环体中定义一个var变量，在循环体外依然可以访问。
+			块级作用域：
+				var 关键字声明的变量不具备块级作用域的特性，它在 {} 外依然能被访问到。
+				ES6中使用let声明的变量只在let命令所在的代码块 {} 内有效，在 {} 之外不能访问。
+				实际上：let定义的变量相当于java中的类型定义。
+				
+		-> let 
+			// let 声明的变量只在 let 命令所在的代码块内有效。
+			// 在相同的作用域或块级作用域中，不能使用 let 关键字来重置 let 关键字声明的变量
+				例：let x = 2;       // 合法
+					let x = 3;       // 不合法
+			// 在相同的作用域或块级作用域中，不能使用 var 关键字来重置 let 关键字声明的变量
+				例：let x = 2;       // 合法
+					var x = 3;       // 不合法
+			// let 关键字在不同作用域，或不同块级作用域中是可以重新声明赋值的
+				例：let x = 2;       // 合法
+					{
+						let x = 3;   // 合法
+					}
+				// 块间不影响
+			
+		-> const
+			// 声明一个只读的常量，一旦声明，常量的值就不能改变
+				例：const PI = 3.141592653589793;
+					PI = 3.14;      // 报错
+					PI = PI + 10;   // 报错
+			// const 的本质: 
+				const 定义的变量并非常量，并非不可变，它定义了一个常量引用一个值。使用 const 定义的对象或者数组，数组内部其实是可变的。
+			
+		
+		-> const定义常量与使用let 定义的变量异同点
+			同：
+				// 二者都是块级作用域
+				// 都不能和它所在作用域内的其他变量或函数拥有相同的名称
+			异：
+				// const声明的常量必须初始化，而let声明的变量不用
+				// const 定义常量的值不能通过再赋值修改，也不能再次声明。而 let 定义的变量值可以修改。
+			
+	
+->函数
+	JS中的函数等同于java中的方法，函数也是可以被重复利用的代码片段
+	语法：
+		语法1：
+			function函数名(变量名1,变量名2){
+				函数体;
+			}
+			
+		语法2：
+			函数名=function(变量名){
+				函数体;
+			}
+	//不需要返回值，不需要变量类型。
+	例：	functionsum(a,b){
+				alert("a+b="+(a+b));
+			}
+			
+			sayHello=function(username){
+				alert("hello"+username);
+			}
+			
+	->函数调用
+		->在js代码块中调用
+			方法名(参数);
+			例：sum(1,2);
+		->在js代码块外调用
+			onclick="函数名(参数);"		//相当于执行了一段js代码
+			例：<inputtype="button"value="调用sum()"onclick="sum(10,100);"/>
+		
+	注意：js中没有方法/函数的重载（方法名一样）。同名函数在调用时，只会调用离调用语句最近的函数，该函数覆盖了前面定义的同名函数。
+	
+	-> 箭头函数
+		// ES5
+			var x = function(x, y) {
+				return x * y;
+			}
+		 
+		// ES6
+			const x = (x, y) => x * y;
+	
+->数据类型
+	原始(基本)类型:
+			ES6前：
+				undefined、Number、String、Boolean、Null
+			ES6后：
+				添加类型：Symbol
+	
+			undefined：未定义
+			Number：数字
+			String：字符串
+			Boolean：布尔
+			Null：对空
+			Symbol：独一无二的值
+	
+	引用类型：Object类与其子类（Array、Function、RegExp、Date等）
+	
+	如何查看数据的数据类型？
+		使用typeof运算符来查看。
+			语法：typeof 变量名;
+			例：alert("undefined：" + typeof a)
+		注：返回结果是上面类型的小写格式的“字符串”。
+	例：
+		var a;
+		var b = 10;
+		var c = "abc";
+		var d = null;
+		var e = false;
+		var f = [1,2,3,4,5];
+		
+	-> Undefined数据类型
+		var a1;					// undefined(Undefined类型)
+		var a2 = undefined;		// undefined(Undefined类型)
+		var a3 = "undefined";	// undefined(String类型)
+		
+	-> Number数据类型
+		var b1 = 100;
+		var b2 = 'a';
+		var b3 = '10';
+		alert("b1/b2 = " + b1/b2);		// 返回值：NaN
+		alert("b1/b3 = " + b1/b3);		// 返回值：10
+		alert(b2 + b1);					// 此时做连接字符串作用（+前面是字符串）
+		
+		-> Number相关常用函数
+			1、isNaN(值)
+				<判断是否不为数字（is not a NaN）>
+				例：alert(isNaN('aaa'));		// true
+			2、parseInt()函数
+				<字符串转换为数字，并且取整>
+				例：parseInt("123.1");			// 123
+					parseInt(123.1);			// 123
+			3、parseFloat()函数
+				<字符串转换为数字>
+				例：parseFloat("123.1");		// 123.1
+					parseFloat(123.1);			// 123.1
+			4、Math.ceil()函数
+				<向上取整>
+				例：Math.ceil("2.1");			// 3
+					Math.ceil(2.8);				// 3
+					
+	-> Boolean数据类型
+		1、JS中的布尔类型只有两个值：true和false
+		2、Boolean类型中有一个Boolean()函数
+			语法：
+				Boolean(值);
+			作用：将非布尔类型的数据转化为布尔类型
+		例：
+			alert(Boolean(1));				// true
+			alert(Boolean(0));				// false
+			alert(Boolean(""));				// false
+			alert(Boolean("abc"));			// true
+			alert(Boolean(null));			// false
+			alert(Boolean(NaN));			// false
+			alert(Boolean(undefined));		// false
+			alert(Boolean(Infinity));		// true
+		注意：Boolean()函数中存在实际数据就返回true，没有实际数据就返回false
+		
+	-> 数组的创建
+		int[] array01 = new int[5];
+		int[] array02 = {1,2,3,4,5};
+		String[] str01 = new String[3];
+		String[] str02 = {"aa","bb","cc"};
+	
+	-> String数据类型	
+		1、JS中的字符串可以使用单引号，也可以使用双引号。
+		2、创建字符串对象
+			方式一：
+				var chr01 = 'abc';
+			方式二：
+				var cha02 = new String("abc");		// js内置String类，可直接使用其父类为Object
+			两种方式的区别：
+				方式一的数据类型是string;方式二的数据类型是object
+		
+		-> String类型的常用属性与函数
+			1、length属性					<计算字符串的长度>
+				var a1 = 'qlj&zmq&qlj';
+				document.write(a1.length);
+			2、访问字符串中任何的字符
+				document.write(a1[0]);
+			3、str.indexOf(值)函数		<查找:定位字符串中某一个指定的字符首次出现的位置>
+				document.write(a1.indexOf('ql'));
+			4、str.match(值)函数			<内容匹配:查找字符串中特定的字符，并且如果找到的话，则返回这个字符>
+				document.write(a1.match("qlj"));
+			5、replace(值1,值2)函数		<替换:用某些字符替换另一些字符>
+				document.write(a1.replace("&","-"));
+			6、toUpperCase()函数			<转换为大写>
+				var a2 = "Qlj&ZmQ";
+				document.write(a2.toUpperCase());
+			7、toLowerCase()函数			<转换为小写>
+				document.write(a2.toLowerCase());
+			8、split()函数				<字符串转换为数组>
+				document.write(a1.split("&"));
+			9、substr()函数				<截取字符串>
+				document.write(a1.substr(4,3));			// 参数1：从索引位置4开始；参数2：步长
+			10、substring()函数
+				document.write(a1.substring(4,6));		// 参数1：开始索引位置；参数2：结束索引位置（不包含）
+			
+	-> Object数据类型
+		1、Object类型是所有类型的超类，自定义的任何类型，默认继承Object
+		2、Object类常见属性及方法：
+			prototype 属性（常用）	// 给类动态的扩展属性和函数
+			constructor 属性
+			toLocaleString 方法
+			toString 方法
+			valueOf 方法
+		注意：prototype常用
+			例：
+				// 对String类添加一个名为suiyi的函数
+				String.prototype.suiyi = function(){
+					return document.write("我是suiyi函数！")
+				}
+				
+				// 调用
+				"abc".suiyi();
+	
+	-> NaN、null、undefined区别
+		1、类型不同
+			NaN:number
+			null:object
+			undefined:undefined
+		2、undefined与null值一致
+		例：
+			// 类型上
+			document.write(typeof NaN + "<br/>");			// number
+			document.write(typeof null + "<br/>");			// object
+			document.write(typeof undefined + "<br/>");		// undefined
+			
+			// 判断值相等(==)
+			document.write(NaN == null);			// false
+			document.write("<br/>");
+			document.write(NaN == undefined);		// false
+			document.write("<br/>");
+			document.write(undefined == null);		// true
+			document.write("<br/>");
+			
+			// 判断值相等且类型相等(===)全等
+			document.write(NaN === null);			// false
+			document.write("<br/>");
+			document.write(NaN === undefined);		// false
+			document.write("<br/>");
+			document.write(undefined === null);		// false
+
+
+-> JS中的类
+	1、定义类（与函数定义语法一样。调用方式不同）
+		语法：
+			方式一：
+				function 类名(形参){
+					类体;
+				};
+			方式二：
+				类名 = function(形参){
+					类体;
+				};
+	2、创建对象
+		语法：
+			new 构造方法名(实参);		// 方法名与类名一致
+	3、js中类在定义的同时，也进行了构造方法的定义，也就是说类的定义与构造方法的定义一起进行
+	例：
+		// 创建User类
+		function User(a,b,c){
+			this.id = a;
+			this.name = b;
+			this.age = c;
+			// 一般形参直接用属性名代替
+			
+			// 实例方法
+			this.learn = function(){
+				return document.write(this.name + "喜欢学习！");
+			}
+			
+			User.eat = function(){
+				console.log("吃饭！");
+			}
+		}
+		
+		// 创建对象
+		var qlj = new User(111,"屈刘杰",24)
+		
+		// 访问类中的属性(两种访问方式)
+		document.write("学号:" + qlj.id + "；姓名:" + qlj.name + "；年龄:" + qlj.age + "<br/>")
+		document.write(qlj["id"] +","+ qlj["name"] +","+ qlj["age"] + "<br/>")
+		
+		// 调用User类中的实例方法
+		qlj.learn();
+		
+		// 调用静态方法
+		User.eat();
+			<注意：静态方法虽然不使用对象调用，但是如果不创建对象则会调用失败(不生效)。>
+	
+	4、prototype 属性		//给类动态的扩展属性和函数
+		例：
+			// 对User类添加/扩展eat()函数
+			User.prototype.play = function(){
+				return document.write(this.name + "喜欢玩！");
+			}
+			
+			// 调用扩展的函数
+			qlj.play();
+		
+		
+-> 事件
+	-> 常用事件
+		focus:获得焦点
+		blur:失去焦点
+		
+		click:鼠标单击
+		dblclick:鼠标双击
+		
+		keydown:键盘按下
+		keyup:键盘弹起
+		
+		mousedown:鼠标按下
+		mouseover:鼠标经过
+		mousemove:鼠标移动
+		mouseup:鼠标弹起
+		
+		reset:表单重置
+		submit:表单提交
+		
+		change:下拉列表选中项改变，或文本框内容改变
+		select:文本被选定
+		load:页面加载完毕（整个html页面所有的元素全部加载完毕之后发生）
+
+		任何一个事件都会对应一个事件句柄，事件句柄是在事件前加on。
+			onxxx	这个事件句柄出现在一个标签的属性位置上
+		
+	-> 注册事件
+		1、直接在标签中使用句柄
+			例：
+				<input type = "button" value="hello" onclick="document.write('hello啊!')"/>
+			以下代码的含义是：将sayHello函数注册到按钮上，等待click事件发生后，该函数被浏览器调用。称该函数是回调函数
+				<input type = "button" value="hello" onclick="sayHello()"/>
+		2、使用纯JS代码完成事件注册
+			<input type="button" value="调用" id="mybut"/>
+		
+			<script type="text/javascript">
+				function mySum(){
+					alert("我是mySum函数！");
+				}
+				/**
+				-> 创建一个按钮
+				-> 获取按钮对象<document.getElementById() 通过id获取>
+				-> 给按钮对象的onclick属性赋值
+				 */
+				var obj01 = document.getElementById("mybut");		// 通过id获取按钮对象
+				obj01.onclick = mySum;		// 将回调函数mySum注册到click事件上
+				// 注：mySum不用加括号
+				
+				// 也可以直接将一个匿名函数赋给按钮对象作为回调函数
+				// 给按钮mybut2注册事件
+				var obj02 = document.getElementById("mybut2");
+				obj02.onclick = function(){				// 此函数没有函数名，依然是回调函数
+					alert("我是匿名函数！");
+				}
+				
+				// 也可以直接一行内对按钮注册事件
+				document.getElementById("mybut3").onclick = function(){
+					alert("我是一行就可以注册事件的按钮！");
+				}
+			</script>
+		
+			注意：html设置的按钮在js代码块上面。
+		
+
+-> JS代码执行顺序
+	// 正常情况下，JS代码执行必须在html按钮信息的下方执行，例上面事件注册案例。
+		如果事件注册时，发生在声明按钮代码的下方，则注册成功。
+		如果事件注册时，发生在声明按钮代码的上方，则注册失败。
+	
+	如何解决js代码出现在html前的执行错误问题？
+		解决方案：
+			load:页面加载完毕（整个html页面所有的元素全部加载完毕之后发生）
+			在body标签中添加属性onload="调用函数"
+			作用：当页面元素加载完毕后才会发生。
+		例：
+			// 将函数load01()添加到body中的onload属性中，则当页面加载完毕才会执行回调函数load01()
+			<body onload="load01()">
+				// js代码块
+				<script type="text/javascript">
+					function load01(){
+						document.getElementById("an2").onclick = function(){
+							alert("执行an2按钮！");
+						}
+					}
+				</script>
+				// 声明按钮命令在js代码块下方。
+				<input type="button" value="hello2" id="an2"/>
+			</body>
+		
+		优化代码：
+				// 不再将onload属性写在body标签中。
+				window.onload = function(){						// 回调函数a
+					document.getElementById("a1").onclick = function(){		// 回调函数b
+						alert("显示查询信息！");
+					}
+				}
+				或者：
+					window.onload = fun01;
+					function fun01(){						// 回调函数a
+						document.getElementById("a1").onclick = function(){		// 回调函数b
+							alert("显示查询信息！");
+						}
+					}
+			解析:
+				以上代码存在两个回调函数a与b(外层为a，内层为b)
+				-> 当页面加载过程中，将a函数注册给事件load;
+				-> 页面加载完毕后，load事件发生，此时执行回调函数a;
+				-> 回调函数a执行的过程中，把b函数注册给id="a1"的click事件;
+				-> 当id="a1"的节点发生click事件后，b函数被调用执行。
+		
+-> void运算符
+	void运算符是对给定的表达式进行求值，然后返回undefined(即不返回任何结果)
+		
+	语法：
+		javascript:void(表达式)
+		javascript:void 表达式
+		
+	使用void运算符：
+		将超链变成'死链'。
+		要求：
+			1.保留住超链接的样式
+			2.用户点击该超链接的时候执行一段JS代码
+			3.页面不能跳转
+		执行了一段js代码，并且执行完毕后，页面停留在原位，没有跳转
+		例：
+			<a href="javascript:void(0)" onclick="alert('点击成功!不会跳转!');">链接</a>
+			// 表达式可以填写任意数字，不影响。
+			// 正常的不设置void运算符，点击链接后，会执行onclick中的js代码，同时进行跳转到href。
+	
+	href="#"与href="javascript:void(0)"区别？
+		两者都是阻止页面跳转，href="#"执行的时候会在地址栏后面添加#号，还会让页面的滚动条滚动到页面的最上面。
+	
+	注意：利用 javascript:伪协议 来执行js代码是不推荐的，利用href="#"也有地址栏添加#号的问题，推荐的做法是为链接元素绑定事件。 
+	
+	
+-> JS中的控制语句	
+	1、if
+	2、switch
+	
+	3、while
+	4、do…while…
+	5、for
+	
+	6、break
+	7、continue
+	
+	8、for…in…	// ① 遍历数组；② 遍历类对象的属性值
+	9、with(了解)
+	
+	注意：1~7与java中语法一致
+	-> for…in…用法
+		例：
+			// for…in…遍历数组
+			for(var i in array){				// in取的是数组的下标
+				document.write(array[i]);
+			}
+	-> with用法
+		例：
+			// 访问user属性值
+			with(user){
+				alert(name + "," + password)
+			}
+	
+正则表达式：
+	Regular Expression
+		概念：正则表达式是由一个字符序列形成的搜索模式。
+		作用：用于字符串格式匹配方面
+	1、常见正则表达式符号
+		-> .:匹配除换行符以外的任意字符
+		-> \w:匹配字母或数字或下划线或汉字
+		-> \s:匹配任意的空白符
+		-> \d:匹配数字
+		-> \b:匹配单词的开始或结束
+		-> ^:匹配字符串的开始
+		-> $:匹配字符串的结束
+	
+		-> *:重复零次或更多次
+		-> +:重复一次或更多次
+		-> ?:重复零次或一次
+		-> {n}:重复n次
+		-> {n,}:重复n次或更多次
+		-> {n,m}:重复n次到m次
+	
+		-> \W:匹配任意不是字母、数字、下划线、汉字的字符
+		-> \S:匹配任意不是空白符的字符
+		-> \D:匹配任意非数字的字符
+		-> \B:匹配不是单词开头或结束的位置
+		-> [^x]:匹配除了x以外的任意字符
+		-> [^aeiou]:匹配除了aeiou这几个字母外的任意字符
+	
+	注：
+		正则表达式中的小括号()优先级较高
+		[1-9]表示1到9任意1个数字（次数是1次）
+		[A-Za-z0-9]表示A-Z、a-z、0-9中的任意1个字符
+		[A-Za-z0-9-]表示A-Z、a-z、0-9、-，这些所有字符中的任意1个字符
+		|:表示或者
+	
+	案例：
+		1、QQ号：^[1-9][0-9]{4,}$	首字母1到9，后续数字为0-9，可重复n次或更多次
+		2、email：^\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$
+			拆分：\w+：表示匹配一到多次字母或数字或下划线或汉字
+				 ([-+.]\w+)*:
+							 括号内:[-+.]中的任意一个字符；\w+任意\w字符可重复一次或多次
+							 括号外:括号内字符可以出现零次或更多次
+				 @\w+:表示必须有字符@，其后跟\w字符重复一次或多次（任意多个）
+				 ([-.]\w+)*:
+							 括号内:[-.]中的任意一个字符(-、.任意一个);\w+任意\w字符可重复一次或多次
+							 括号外:括号内字符可以出现零次或更多次
+				 \.\w+:表示必须出现'.'(转义为'.'字符，否则为正则符号);\w+任意\w字符可重复一次或多次
+			eg:qlj-jlq@qlj.jlq.com.cn
+	
+	
+	// 创建正则表达式(方式一)
+	var chr01 = /正则表达式/flags;
+	
+	// 创建正则表达式(方式二)
+	var chr02 = new RegExp("正则表达式","flags");
+	
+	关于创建语法中的flags
+		flags是可选字符串，包含属性g、i、m。
+		g	全局匹配
+		i	区分大小写
+		m	多行匹配
+		注：ES标准化前，不支持m属性。如果方式一中'/'内是正则表达式，而不是字符串，则必须省略参数flags
+	
+	
+	正则表达式对象的test()方法：<判断字符串格式是否匹配>
+			true/false = 正则表达式.test(用户填写的字符串);
+			若返回true，则字符串格式匹配成功	
+	
+	

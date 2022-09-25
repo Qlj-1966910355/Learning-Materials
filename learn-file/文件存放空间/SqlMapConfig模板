@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN" "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+    <!--读取属性文件jdbc.properties-->
+    <properties resource="jdbc.properties"></properties>
+    <!--设置sql执行日志输出-->
+    <settings>
+        <setting name="logImpl" value="STDOUT_LOGGING"/>
+    </settings>
+    <!--注册实体类别名(批量注册)-->
+    <typeAliases>
+        <package name="com.sg.pojo"></package>
+    </typeAliases>
+
+    <environments default="development">
+        <!--被设置为默认数据库-->
+        <environment id="development">
+            <!--配置事务管理器(JDBC：程序员处理；MANAGED：Spring管理)-->
+            <transactionManager type="JDBC"></transactionManager>
+            <!--配置数据源(pooled：使用数据库连接池))-->
+            <dataSource type="pooled">
+                <!--注意：导入数据库配置文件-->
+                <property name="driver" value="com.mysql.cj.jdbc.Driver"></property>
+                <property name="url" value="jdbc:mysql://localhost:3306/qlj_sql?useUnicode=true&amp;characterEncoding=utf-8"></property>
+                <property name="username" value="root"></property>
+                <property name="password" value="123456"></property>
+            </dataSource>
+        </environment>
+    </environments>
+
+    <!--注册mapper.xml文件-->
+    <mappers>
+        <package name="mapper文件所在包名"></package>
+    </mappers>
+</configuration>

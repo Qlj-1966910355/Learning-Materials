@@ -1,0 +1,335 @@
+<maven项目的导入>
+	1、复制粘贴别的maven项目，修改项目文件名称。
+	2、删除target、.iml文件
+	3、修改pom文件中<artifactId>标签下的项目名称
+	4、在当前项目中导入该项目module模块
+		-> 点击项目结构 -> 在modules下点击'+' -> import module -> 找到修改过的maven项目 -> 选择import module的maven项目 -> 下一步完成
+		-> 修改jdk版本
+
+
+项目的构建(生命周期)
+	-> 清理。把之前编译的class文件清除掉。
+
+	-> 编译。把程序源代码编译为可执行文件，class文件。maven一次可以将成百上千的java文件编译为class文件
+
+	-> 测试。maven可以执行测试文件代码，验证功能是否正确。maven可以同时执行多个测试代码。
+
+	-> 打包。将项目中的所有class文件，配置文件等所有资源放在一个压缩文件中。这个文件就是项目的结果文件。
+		 通常java程序，压缩文件是jar扩展名。web应用，压缩文件扩展名是.war
+
+	-> 安装。把生成的jar文件，war文件安装到本地仓库。
+	
+	-> 部署。把程序安装好可以执行。
+
+
+maven核心概念
+	-> POM
+		POM是一个文件，名称是pom.xml，翻译过来叫项目对象模型。
+		maven把一个项目当做一个模型来做。控制maven构建项目的过程，管理jar依赖
+
+	-> 约定的目录结构
+		maven项目的目录和文件的位置都是规定的
+
+	-> 坐标
+		是一个唯一的字符串，用来表示资源
+
+	-> 依赖管理
+		管理项目可以使用的jar包
+
+	-> 仓库管理
+		资源存放位置
+
+	-> 生命周期
+		maven工具构建项目的过程，就是生命周期
+
+	-> 插件和目标
+		执行maven构建时候用的工具是插件
+
+	-> 继承
+		
+	-> 聚合
+
+
+maven安装配置
+	-> 需要从maven官网下载安装包。apache-maven-3.3.9-bin.zip(与jdk1.8匹配)
+		地址：https://maven.apache.org/download.cgi
+	-> 解压安装包，非中文目录。
+		子目录：
+			bin：执行程序，主要是mvn.cmd。
+			conf:maven工具本身的配置文件 settings.xml。
+	-> 配置环境变量
+		在系统的环境变量中，指定一个M2_HOME名称，指定它的值是maven工具安装目录，bin之前的目录
+		【例】：M2_HOME=D:\work\maven_work\apache-maven-3.3.9
+		再把M2_HOME加入到path中，在所有路径之前加入 %M2_HOME%\bin
+	-> 验证
+		在新的命令行中执行mvn -v
+	-> 配置java环境
+
+
+maven的约定目录结构
+	Hello					// 项目名
+
+	----src
+	--------main				// 主程序牡目录，java代码及配置文件
+	------------java			// 保存程序包和包中的java文件
+	------------resources			// java程序中要使用的配置文件
+
+	--------test				// 放测试程序代码和文件的
+	------------java			// 测试程序包和包中的java文件
+	------------resources			// 测试java程序中要使用的配置文件
+
+	----pom.xml				// maven核心文件
+
+编译maven项目main下的java文件
+	在src目录级打开cmd，输入：mvn compile
+	注意：第一次编译maven结构的java文件时，会download一些文件。
+	疑问：
+		-> 为什么要下载这些文件？
+			maven工具执行的操作需要很多插件(java类--jar文件)完成的。
+			为了执行maven功能。
+		-> 下载的文件是什么？
+			jar文件(插件)--完成某些功能
+		-> 下载的文件存放位置在哪？
+			默认存储位置：C：\Users\administrstor\.m2\repository(本机仓库)
+	执行完成编译操作，项目的根目录下生成一个target目录，java编译后的class文件都放在这个目录下。
+
+	修改/设置本机存放资源的目录位置(设置本机仓库)：
+		-> 修改maven的配置文件，maven安装目录/conf/settings.xml（注意先备份一份）
+		-> 修改settings中<localRepository> 指定你的目录(自定义的目录)。（将项目目录地址写进标签）
+			注意地址的斜杠。
+			例：自定义本地仓库目录 D:\maven_zip\maven_repository
+
+
+仓库
+	-> 仓库是什么？
+		仓库是存放maven使用到的jar包和项目使用的jar包。
+			-> maven使用的插件(各种jar)
+			-> 自己项目使用的jar包(第三方工具)
+	
+	-> 仓库分类
+		-> 本地仓库。个人计算机上的文件，存放着各种jar
+		-> 远程仓库。在互联网上，使用网络才能使用的仓库(下载)
+			① 中央仓库：最权威的，所有开发人员都共享使用的一个集中仓库。
+				https://repo.maven.apache.org		||		https://mvnrepository.com/
+			② 中央仓库镜像：中央仓库的备份(防止所有人都访问对仓库的压力过大)
+				各大洲都会有镜像网站。
+			③ 私服：在公司的内部，在局域网中使用，不对外开放。
+
+	-> 仓库的使用
+		maven仓库的使用不需要人为参与。
+		例：开发人员需要使用mysql驱动-->首先查maven本地仓库-->私服-->镜像-->中央仓库
+
+
+pom(重点)
+	项目的对象模型。maven把一个项目的结构和内容抽象成一个模型，在xml文件中进行声明，以方便进行构建和描述，
+	pom.xml是maven的灵魂。
+	【参数】
+	-> modelVersion：maven模型的版本，对于maven2与maven3只能是4.0.0
+
+	-> 坐标(互联网上唯一标识一个项目，可以找项目)
+		-> groupId：组织id，一般是公司域名的倒写。
+			【例】：域名倒写：com.baidu
+				域名倒写+项目名：com.baidu.qlj_maven
+		-> artifactId：项目名称，也称模块名称。
+		-> version：项目版本号。如果项目还在开发中(不稳定版本)，通常在版本后带-SNAPSHOT。
+			version使用三个数字标识，例：1.1.0
+		【例】：
+			<groupId>com.qlj_maven</groupId>
+			<artifactId>Hello_Maven</artifactId>
+			<version>1.0-SNAPSHOT</version>
+		www.mvnrepository.com：搜索使用中央仓库。使用groupId或者artifactId作为搜索条件。
+		【例】：搜索mysql-->点击mysql链接-->选择对应版本-->可以下载jar包/maven坐标信息等。
+
+	-> packaging：项目打包类型。默认为.jar包。也可以是：war、rar、ear、pom。
+
+	-> 依赖：项目中使用的各种资源说明。相当于import一样。
+		-> dependencies和dependency
+			① 作用是管理jar包，为了一个项目可以构建或运行，项目中不可避免的依赖很多其他jar包，在
+			maven中，这些jar称为依赖，使用dependency来配置。
+			② 由此可以看出，maven把所有jar包视为项目的存在。
+			
+		【例】：mysql包
+			-> 将masql项目坐标使用dependencies和dependency标签添加到pom文件中。
+			-> mysql坐标可以在中央仓库中搜索查找。
+			-> 在自定义仓库去查找这个mysql的jar项目。
+			-> 在自定义仓库中找到这个jar后，会将仓库中的jar包加载到项目中使用。
+			-> 如果没有则会在远程仓库中下载。
+		<dependencies>
+			<!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->
+			<dependency>
+    				<groupId>mysql</groupId>
+    				<artifactId>mysql-connector-java</artifactId>
+    				<version>8.0.23</version>
+			</dependency>
+		</dependencies>
+
+	-> properties：用来定义配置属性。例如：<java.version>1.8</java.version>
+
+	-> build：maven在进行项目构建时，配置信息。例：指定编译java代码使用的jdk的版本等等。
+
+
+常用maven命令
+	-> mvn clean：清理原来编译和测试的目录，即target目录，但是已经install到仓库中的包不会被清除。
+	-> mvn compile：编译主程序。会在项目根目录下(src级)生成一个target目录，存放主程序(main)的class文件。
+	-> mvn test-compile：编译测试程序。在当前目录下生成target，存放测试程序的class文件。
+	-> mvn test：测试。会生成一个surefire-reports，保存测试结果。
+			(修改main文件后，可以直接执行mvn test,maven周期会自动执行test前的命令)
+	-> mvn package：打包主程序。会编译、编译测试、测试、并按照pom.xml配置把主程序打包生成jar包或war包。
+			存储位置：在target文件内。默认命名方式：项目名 + 项目版本号(项目坐标<pom文件可以查看>)
+	-> mvn install：安装主程序。把本工程打包，按照本工程的坐标保存在本地库中(就是本地仓库)项目，方便其他使用。
+			位置：本地仓库-->项目坐标(每个标签内容都是一个文件夹，"."也要分文件夹)
+			如果新项目需要使用这个本地仓库的jar包，就使用坐标将jar包加载到项目中。
+	-> mvn deploy：部署主程序。把本工程打包，按照本工程的坐标保存在本地库中，并且还会保存在私服仓库中，
+		       还会自动把项目部署到web容器中。
+	
+	注：执行以上命令必须在pom.xml所在目录的命令行下进行。
+		
+
+
+maven插件
+	maven执行上面命令时，真正完成功能的是插件，插件就是一些jar文件，一些类。
+	也就是说，maven执行是依赖着这些jar包/插件的。
+
+	-> 单元测试(一种测试方法)：用的是junit(一个小框架)。
+		junit测试内容：测试的是类中的方法，每一个方法都是独立的测试。方法是测试的基本单元。
+		maven借助单元测试，批量的测试类中的方法是否符合预期。
+	
+	-> 使用步骤
+		① 加入junit单元测试的依赖，在pom.xml加入单元测试依赖。(在中央仓库搜索)
+			<dependencies>
+				<dependency>
+    					<groupId>junit</groupId>
+    					<artifactId>junit</artifactId>
+    					<version>4.11</version>
+    					<scope>test</scope>
+				</dependency>
+			</dependencies>
+
+		② 在maven项目中的src/test/java/目录下，创建测试程序。
+			推荐创建类和方法的提示：
+				-> 测试类的名称：Test + 测试的类名
+				-> 测试方法名称：Test + 方法名
+			【例】测试HelloMaven类
+				-> 导入包
+					import org.junit.Assert;
+					import org.junit.Test;
+				-> 创建TestHelloMaven类
+					@Test
+					public void testAdd(){			// 测试方法
+						测试HelloMaven的add方法是否正确;
+						// 验证main文件中java文件,比较实际值与期望值，相等就说明正常，不相等就会抛出异常。
+						// junit中的比较方法：assertEquals(期望值 ,实际值)
+						// 调用:Assert.assertEquals(期望值 ,实际值)
+					}
+					// 方法的public，必须的。
+					// 方法没有返回值，必须的。
+					// 方法名称是自定义的，推荐是Test + 方法名称。
+					// 在方法上面加入 @Test,表示测试方法。
+
+
+插件配置(build)
+	控制配置，maven构建项目的参数设置，设置jdk版本。
+	
+	怎样在pom.xml中配置各种插件？
+	    <具体插件信息直接在网上搜索即可>
+	    配置语法：
+			<!-- 控制配置参数 -->
+			<build>
+				<!-- 配置插件 -->
+				<plugins>
+					<!-- 配置具体插件 -->
+					<plugin>
+						<组织id>
+    						<groupId>org.apache.maven.plugins</groupId>
+						<!-- 插件/jar包名称 -->
+    						<artifactId>maven-compiler-plugin</artifactId>
+						<!-- 插件版本 -->
+						<version>3.8.1</version>
+						<!-- 配置插件信息 -->
+    						<configuration>
+							<!-- 源代码编译版本，告诉maven代码在jdk8上编译 -->
+        						<source>1.8</source>
+							<!-- 目标平台编译版本，程序应该运行在jdk8上 -->
+        						<target>1.8</target>
+							<!-- 字符集编码 -->
+        						<encoding>${project.build.sourceEncoding}</encoding>
+    						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+
+
+idea中使用maven（重点）
+	1、idea中设置了maven，让idea和maven结合使用。
+	但是一般不使用内置的maven，因为用内置修改maven的设置不方便。
+	使用自己安装的maven，需要覆盖idea中的默认的设置。让idea指定maven安装位置等信息。
+
+	配置入口：
+		① 配置当前file-->settings-->Build...-->Build Tools-->maven
+			maven home directory：maven的安装目录
+			user settings file：maven安装目录conf/setting.xml配置文件
+			local repository：本机仓库目录位置
+			--> Runner
+				jre：设置jre版本。
+				vm options：-DarchetypeCatalog=internal	// 加快maven构建速度
+			
+		② 配置以后新建工程的设置，file-->other settings-->Settings for New project
+	
+
+创建基于maven的java项目
+	-> 新建new file project
+	-> 选择maven项目，设置jdk版本
+		注意：create from archetype	// 选择创建模板结构，意思是通过模板创建项目
+		模板名：maven-archetype-quickstart(快速创建普通的java项目的模板)<注意要选择这个模板，再下一步>
+	-> 填写项目名
+		注意：版本不同可能不是填写项目名，有可能是填写项目坐标。
+	-> 填写项目坐标信息。
+	-> 最后点击ok。
+		注意：右下角会出现enable auto-import（启用自动导入功能）
+			// 意思是在maven中改动信息时，pom文件自动检测，并自动导入进项目。
+	
+
+创建文件后配置项目
+	-> 使用maven-archetype-quickstart模板创建maven项目时，main与test目录下都没有resources目录
+	-> 对main与test目录下手动添加resources目录
+	-> 对main与test目录下的java/resources目录右击进行标记(mark directory as)
+		// resources放置配置资源
+
+idea中执行命令
+	打开右侧的maven导航栏-->项目名-->lifecycle-->按照Maven的生命周期进行双击执行命令。
+
+compile时出现了错误：修改pom文件的jdk版本为1.8。
+
+
+
+idea创建maven类型的web项目
+	需要注意的是:
+		1、在勾选create from archetype选择模板结构时，选择maven-archetype-webapp，再点击下一步。
+		2、此模板结构缺少的目录较多，在src中的main目录下需要手动添加java与resources目录，若需要测试，还要添加test目录及子目录。
+		   创建完成目录后，对目录进行标记(与普通标记方式一致)。
+		3、
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

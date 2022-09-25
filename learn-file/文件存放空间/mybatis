@@ -1,0 +1,880 @@
+-> 三层架构
+	-> 界面层：用来接收客户端的输入，调用业务逻辑进行功能处理，返回结果给客户端(例：servlet资源)
+	-> 业务逻辑层：用来进行整个项目的业务逻辑处理，向上为界面层提供处理结果，向下向数据访问层索要数据
+	-> 数据访问层：专门用来进行数据库的增删改查操作，向上为业务逻辑层提供数据。
+	各层之间的调用顺序是固定的，不允许跨层访问。
+		界面层<---->业务逻辑层<---->数据访问层
+
+-> 常用的SSM框架
+	-> Spring：整合其他框架的框架。核心是IOC与AOP。由20多个模块构成。
+	-> SpringMVC：专门用来优化控制器(servlet)的，提供了简单的数据提交、数据携带、页面跳转等功能
+	-> MyBatis：是持久化层的一个框架，用来进行数据库访问的优化，专注于sql语句，极大地简化了jdbc的访问
+	
+-> MyBatis框架
+	用于数据访问层的优化，它专注于sql语句，简化了过去的jdbc访问。(让开发者专注于SQL的处理)
+
+-> 添加框架步骤
+	1、添加依赖
+	2、添加配置文件
+	
+	<具体步骤>
+	1、新建库建表
+	2、新建maven项目，选择quickstart模板
+	3、修改目录，添加缺失的目录，修改目录的属性
+	4、修改pom.xml文件，添加mybatis的依赖，添加mysql的依赖
+		<dependencies>
+			<dependency>
+				<groupId>org.mybatis</groupId>
+				<artifactId>mybatis</artifactId>
+				<version>3.5.6</version>
+			</dependency>
+			<dependency>
+				<groupId>mysql</groupId>
+				<artifactId>mysql-connector-java</artifactId>
+				<version>8.0.23</version>
+			</dependency>
+		  </dependencies>
+	5、修改pom.xml文件，添加资源文件指定
+		<!--目的：将编译后的资源文件加载到target目录中-->
+		<build>
+			<resources>
+				<resource>
+					<directory>src/main/java</directory>
+					<includes>
+						<include>**/*.xml</include>
+						<include>**/*.properties</include>
+					</includes>
+				</resource>
+
+				<resource>
+					<directory>src/main/resources</directory>
+					<includes>
+						<include>**/*.xml</include>
+						<include>**/*.properties</include>
+					</includes>
+				</resource>
+			</resources>
+		</build>
+		
+	6、在idea中添加数据库的可视化
+		注意：不同版本的idea可能适用的mysql驱动版本不一致，当测试连不成功时，将驱动删除，重新导入一个版本的驱动。
+		
+	7、添加jdbc.properties属性文件(数据库配置文件)
+		连接数据库驱动的包名，数据库连接对象url、user、password。
+		
+	8、在main.resources包下添加SqlMapConfig.xml文件，MyBatis的核心配置文件
+		头文档配置：
+			<?xml version="1.0" encoding="utf-8" ?>
+			<!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+					"http://mybatis.org/dtd/mybatis-3-config.dtd">
+			<configuration></configuration>
+		SqlMapConfig.xml文件可配置的信息：<以下文档表示配置文件中可用标签>
+			位置：外部库mybatis.jar\org\apache\ibatis\builder\xml\mybatis-config.xsd
+			1、mybatis-3-config.dtd 头文档
+				描述了SqlMapConfig.xml中可用标签，以及标签结构、属性等。
+				例：configuration (properties?, settings?, typeAliases?, typeHandlers?, objectFactory?, objectWrapperFactory?, 
+					reflectorFactory?, plugins?, environments?, databaseIdProvider?, mappers?)>
+					<configuration>标签中可以出现<properties>标签(子标签)，并且出现顺序不能颠倒。
+			2、mybatis-config.xsd 头文件
+				与mybatis-3-config.dtd头文档的结构基本一致，效果相同。
+		
+		常用配置参数
+			-> 读取属性文件(jdbc.properties)
+				属性：
+					resource：从resources目录下找指定名称的文件
+					url：使用绝对路径加载属性配置文件(磁盘绝对路径)
+				<properties resource="jdbc.properties"></properties>
+				
+			-> 设置sql执行日志输出
+				<settings>
+					<setting name="logImpl" value="STDOUT_LOGGING"/>
+				</settings>
+				
+			-> 注册实体类别名
+				<typeAliases>
+					<package name="com.sg.pojo"></package>
+				</typeAliases>
+				
+			-> 配置数据库的环境变量(数据库连接配置)
+				属性：
+					default：默认使用id=development的数据库连接
+
+				<environments default="development">
+					<!--可以配置多个数据库连接，在不同环境下可以自由切换使用-->
+					<!--被设置为默认数据库-->
+					<environment id="development">
+						<!--配置事务管理器
+							属性type：
+								指定事务管理方式(JDBC：事务交给程序员处理；MANAGED：由容器(Spring)来管理事务)
+							源码位置：外部库mybatis.jar\org\apache\ibatis\transaction
+						-->
+						<transactionManager type="JDBC"></transactionManager>
+						<!--配置数据源
+							属性type：
+								jndi：java命名目录接口，在服务器端进行数据库连接池管理
+								pooled：使用数据库连接池
+								unpooled：不使用数据库连接池
+								注意：不管是否使用连接池，配置数据库连接都是同一个标签内配置(这就是底层的代码复用)
+							源码位置：外部库mybatis.jar\org\apache\ibatis\datasource
+							-->
+						<dataSource type="pooled">
+							<!--配置数据库连接
+								${driver}中的名称是properties中的名称。
+								***** 注意：name中的名称一定要注意不能错误，名称对应的是UnpooledDataSource类中的属性名。
+							-->
+							<property name="driver" value="${driver}"></property>
+							<property name="url" value="${url}"></property>
+							<property name="username" value="${user}"></property>
+							<property name="password" value="${password}"></property>
+						</dataSource>
+					</environment>
+					/*
+					<!--居家办公使用的数据库-->
+					<environment id="home">
+						<transactionManager type=""></transactionManager>
+						<dataSource type=""></dataSource>
+					</environment>
+					<!--上线后使用的数据库-->
+					<environment id="online">
+						<transactionManager type=""></transactionManager>
+						<dataSource type=""></dataSource>
+					</environment>
+					*/
+				</environments>
+				
+			-> 注册mapper.xml文件
+				<!--
+					注册mapper.xml文件
+					resource：从resources目录下找指定名称的文件注册
+					url：使用绝对路径进行注册
+					class：动态代理方式下注册
+				-->
+				<mappers>
+					<!--
+					单个注册
+						注意：在动态代理下这里使用class属性，属性值为接口的全限定包名
+						<mapper class="com.sg.mapper.UsersMapper"></mapper>
+					-->
+					<mapper resource="StudentMapper.xml"></mapper>
+					<!--
+					批量注册
+						<package name="com.sg.mapper"></package>
+					-->
+					
+				</mappers>
+				
+	9、创建实体类Student，用来封装数据
+	
+	10、添加完成学生表的增删改查功能的StudentMapper.xml文件(可以在任意地方创建)
+		Mapper.xml的头文档：
+			<?xml version="1.0" encoding="utf-8" ?>
+			<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+					"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+			<!--
+				mapper：（映射器）是整个文件的大标签，用来开始和结束xml文件
+				属性：
+					namespace：指定命名空间(相当于包名)，用来区分不同mapper.xml文件中的相同id属性
+			-->
+			<mapper namespace="com.sg.mapper.StudentMapper">
+				<!--
+					查询学生表的信息
+					List<Student> getStudent();
+					id：表示资源调用该查询结果集的名称
+					resultType：指定查询返回结果集的类型，如果是集合，则必须是泛型的类型。注意类型是全限定包名。
+					parameterType：如果有参数，则通过它来指定参数。
+					    mybatis的传入参数类型与java实际类型不同，存在一种映射关系。
+						例：_byte == byte     _int == int     _integer == int     _float == float
+							string == String    byte == Byte    int == Integer      date == Date	
+							list == List	object == Object	map == Map		collection = Collection
+							简单类型与实体类对象类型写该参数，其他都不用写。
+					注意：
+						-> 在写sql时存在两种方式传参：
+							#{}：#{id}参数占位符
+							${}：${name}做字符串拼接
+						-> 当做增删改操作时，完成sqlSession操作需要手动进行事务提交
+							sqlSession.commit();
+				-->
+				<select id="getStudent01" resultType="com.sg.pojo.Student">
+					SELECT id, name, age, gender, address
+					FROM student
+				</select>
+				
+				<!-- 注意：mapper.xml文件需要在SqlMapConfig.xml文件中进行注册才能使用 -->
+				<select id="getgetStudent02" resultType="com.sg.pojo.Student" parameterType="string">
+					SELECT id, name, age, gender, address
+					FROM student
+					WHERE id = #{id}
+				</select>
+			</mapper>
+			
+	11、创建测试类，进行功能测试。
+		public class MyTest {
+			@Test
+			public void testA() throws IOException {
+				// 使用文件流读取核心配置文件SqlMapConfig.xml
+				InputStream in = Resources.getResourceAsStream("SqlMapConfig.xml");
+				
+				// 创建SqlSessionFactory工厂<设计模式>
+				SqlSessionFactory factory = new SqlSessionFactoryBuilder().build(in);
+				
+				// 取出SqlSession的对象
+				SqlSession sqlSession = factory.openSession();
+				
+				// 完成查询操作
+				List<Student> s = sqlSession.selectList("qlj.getStudent01");
+				s.forEach(student -> System.out.println(student));
+				
+				// 关闭SqlSession
+				sqlSession.close();
+			}
+			
+			// 主键条件查询(只返回一条记录时使用selectOne()方法)
+			@Test
+			public void testB() throws IOException {
+				// 使用文件流读取核心配置文件
+				InputStream in = Resources.getResourceAsStream("SqlMapConfig.xml");
+				// 创建SqlSessionFactory工厂
+				SqlSessionFactory factory = new SqlSessionFactoryBuilder().build(in);
+				// 取出SqlSession的对象
+				SqlSession sqlSession = factory.openSession();
+				// 执行sql
+				List<Student> list = sqlSession.selectOne("qlj.getgetStudent02","17100305108");
+				// 遍历list
+				list.forEach(s -> System.out.println(s));
+				// 关闭sqlSession
+				sqlSession.close();
+			}
+		}
+
+	-> 其他sql操作
+		<!--模糊查询-->
+		<select id="getStudent03" resultType="com.sg.pojo.Student" parameterType="string">
+			SELECT id, name, age, gender, address
+			FROM student
+			WHERE name LIKE '%${name}%'
+			-- ${name}做字符串拼接
+		</select>
+
+		<!--增加记录-->
+		<!--注意：增加记录时没有可返回的记录，并且新增的数据类型就是一整条记录值，所以相当于一个实体类对象-->
+		<insert id="getInsert01" parameterType="com.sg.pojo.Student">
+			-- 参数传入的是实体类对象的属性值，所以参数必须是属性名。
+			INSERT INTO student VALUES (#{id}, #{name}, #{age}, #{gender}, #{address})
+		</insert>
+
+		<!--删除记录-->
+		<delete id="getDelete01" parameterType="string">
+			DELETE FROM student WHERE id = #{id}
+		</delete>
+
+		<!--修改记录-->
+		<!--注意：修改记录时是修改一条记录，所以传入的参数需要是实体类对象-->
+		<update id="getUpdate01" parameterType="com.sg.pojo.Student">
+			UPDATE student SET name = #{name}, age = #{age}, gender = #{gender}, address = #{address}
+			WHERE id = #{id}
+		</update>
+
+-> 优化mybatis代码
+	-> 优化测试类方法
+		<当前测试类中重复代码较多，尤其是在读取核心配置文件与创建SqlSession对象工厂及对象时重复较多>
+		优化：
+			将读取核心配置文件与创建SqlSession对象工厂及对象封装起来，需要使用时调用这个封装的方法
+				
+				@Before		// 表示在@Test注解的方法执行前执行被@Before注解的方法
+					例：
+						@Before
+						public void openSqlSession() throws IOException {
+							// 使用文件流读取核心配置文件SqlMapConfig.xml
+							InputStream in = Resources.getResourceAsStream("SqlMapConfig.xml");
+							// 创建SqlSessionFactory工厂
+							SqlSessionFactory factory = new SqlSessionFactoryBuilder().build(in);
+							// 取出SqlSession的对象
+							sqlSession = factory.openSession();
+						}
+						// 注意：sqlSession变量需要设置为全局变量，供其他方法使用
+						
+				@After		// 表示@Test方法执行完成后执行@After方法
+					例：
+						@After
+						public void clossSqlSession(){
+							sqlSession.close();
+						}
+			
+	-> 优化XxxxMapper.xml文件(sql配置文件,例:StudentMapper.xml)
+		sql语句中执行时会进行传参或者返回查询结果，所以需要写实体类的全限定包名。
+			例：
+				// 查询语句需要返回实体类对象
+				resultType="com.sg.pojo.Student"
+				// 新增或修改时需要传入整个实体类作为参数
+				parameterType="com.sg.pojo.Student"
+			
+			注册实体类的别名
+				在核心配置文件SqlMapConfig中使用typeAliases标签。
+					注意：SqlMapConfig.xml中标签是有顺序的，而typeAliases在<settings>与<typeHandlers>之间。
+						可以在mybatis-3-config.dtd文件中查看顺序及属性。
+						
+				-> 单个注册
+					<typeAliases>
+						<!--单个实体类注册-->
+						<typeAlias type="com.sg.pojo.Student" alias="student"></typeAlias>
+					</typeAliases>
+					// 直接将Mapper.xml文件中的对应包名替换掉即可。
+					注意：弊端是当数据库表较多时，则实体类就很多，需要单个注册的实体类别名就很多。
+					
+				-> 批量注册
+					<!--注意：
+							这种方法是将pojo实体类包中的所有实体类进行别名注册。
+							别名：别名是实体类名的驼峰命名。
+					-->
+					<typeAliases>
+						<package name="com.sg.pojo"></package>
+					</typeAliases>
+			
+	-> 设置日志输出
+		将sql底层执行过程打印到控制台输出。
+		<每执行一个@Test，则就会在控制台中看到执行信息>
+		
+		设置位置：在核心配置文件中设置
+		具体配置信息：
+		    <!--设置sql执行日志输出-->
+			<settings>
+				<setting name="logImpl" value="STDOUT_LOGGING"/>
+			</settings>
+			
+			
+-> 动态代理规范
+	1、UsersMapper接口与UsersMapper.xml文件必须在同一个目录下
+	2、UsersMapper接口与UsersMapper.xml文件名必须一致，不包括后缀
+	3、UsersMapper接口中的方法名与UsersMapper.xml文件的id必须一致
+	4、UsersMapper接口方法参数与UsersMapper.xml文件中parameterType类型必须一致
+	5、UsersMapper接口方法返回值与UsersMapper.xml文件中resultType类型完全一致(主要是查询操作)
+	6、UsersMapper.xml文件中的namespace的值是UsersMapper接口的全限定包名
+	7、在SqlMapConfig.xml文件中注册UsersMapper.xml文件，使用class=接口的完全限定名称
+			
+-> 动态代理模式下进行数据库访问
+	1、maven项目创建
+	2、修改pom.xml文件，添加依赖
+	3、添加数据库连配置文件jdbc.propertions
+	4、添加SqlMapConfig.xml核心配置文件
+		创建位置：main-->java-->resources-->SqlMapConfig.xml
+		-> 读取数据库配置文件
+		-> 设置sql执行日志输出
+		-> 注册实体类别名(分单个与批量)
+		-> 配置环境变量
+		-> 注册mapper.xml文件(分单个与批量)
+	5、添加实体类
+		创建位置：com.sg.pojo.Users
+		<此时注册实体类别名，在创建pojo时就可以注册了(批量注册)>
+	6、添加mapper文件夹，新建mapper接口
+		数据访问层的接口，规定数据库中可进行的各种操作。
+		添加位置：
+				com.sg.mapper.UsersMapper
+		接口中的方法：
+			数据查询返回值类型 方法名(参数);
+				例：List<Users> getSelect03(String s);		// 注意：参数名称就是mapper.xml文件对应的#{}中的名称
+			<与mapper.xml对应的sql执行语句一致>
+	7、在mapper文件夹中，新建mapper.xml文件，完成sql语句执行。
+		注意：mapper标签中的namespace属性不在是自定义的了。
+			例：<mapper namespace="com.sg.mapper.UsersMapper"></mapper>
+		<此时可以去核心配置文件中注册该mapper文件，实际上在创建了数据访问层的mapper包就可以注册了(批量注册)>
+			注意：动态代理时需要使用class属性，并且属性值为接口的全限定包名
+				例：<mapper class="com.sg.mapper.UsersMapper"></mapper>
+	8、添加测试类，执行。
+		-> @Before方法创建
+			// 读取核心配置文件
+			// 创建SqlSession工厂
+			// 取出SqlSession对象
+			// 创建动态代理对象
+				注意：此处与一般的sql执行不同，使用动态代理进行创建。同时将动态代理对象设置为成员变量。
+				mapper = sqlSession.getMapper(UsersMapper.class);
+		-> @After方法创建
+			// 关闭SqlSession
+		-> 创建测试方法，使用动态代理对象调用执行sql的方法。
+			注意：传参时的数据类型就是接口创建抽象方法时的数据类型，返回值就是接口中对应方法的返回值。
+				例：模糊查询传入了一个String类型参数
+					mapper.getSelect03("x").forEach(users -> System.out.println(users));
+			<DML语句需要进行手动提交操作>
+
+-> #{}与${}详解
+	#{}：
+		<相当于?>
+		对非字符串拼接的参数的占位符。
+			如果入参是简单数据类型，#{}里可以任意写，但如果入参是对象类型，则#{}必须是实体类对象的属性名,#{}可以防止sql注入。
+		<底层实际就是PreparedStatement对象>
+	${}：
+		针对字符串拼接或替换
+			如果入参是基本数据类型，${}必须是value(低版本中)，高版本可任意写，但如果入参是对象类型，则${}里必须是对象的属性名。
+			${}还可以替换列名和表名，存在sql注入的风险
+		<底层实际就是Statement对象>
+	
+	-> 优化模糊查询
+		由于模糊查询使用的是${}，这种传参有sql注入的风险。
+		解决办法：
+			将 '%${s}%' 替换为 concat('%',#{s},'%')
+		例：
+		    <select id="getSelect03" parameterType="string" resultType="users">
+				SELECT id, name, user, password
+				FROM users
+				WHERE user LIKE concat('%',#{s},'%')
+			</select>
+	
+	-> 用${}做字段名替换
+		例：<模糊查询进一步优化>
+			目的：让被模糊查询的字段成为变量
+			
+				-> 处理接口中的抽象方法
+					List<Users> getSelect04(
+							@Param("columnName")
+							String columnName,
+							@Param("columnValue")
+							String columnValue
+					);
+					
+				-> 处理mapper.xml的sql语句
+					<!--
+						模糊查询优化
+							注意：当传入参数大于1个时，可以不写parameterType属性
+					-->
+					<select id="getSelect04" resultType="users">
+						SELECT id, name, user, password
+						FROM users
+						WHERE ${columnName} LIKE concat('%',#{columnValue},'%')
+					</select>
+					
+				-> test调用
+					// 模糊查询name字段中出现"王"的记录
+					public void testG(){
+						// 调用
+						List<Users> list = mapper.getSelect04("name", "王");
+						list.forEach(users -> System.out.println(users));
+					}
+					
+					// 模糊查询user字段中出现"q"的记录
+					public void testH(){
+						// 调用
+						mapper.getSelect04("user", "q").forEach(users -> System.out.println(users));
+					}
+		
+	
+-> 返回主键业务
+	<当表中主键是自动自增时可以使用这种方法>
+	场景：
+		存在用户表与用户成绩表，当添加一个用户时，再给该用户增加一个成绩。
+		正常实现：
+			// 给用户插一条数据，然后查询取出这条数据的主键，使用用户主键给用户成绩表中添加一条数据。
+		
+		简化实现：
+			// 当执行插入时就返回这条数据的主键，再使用主键插入成绩。
+				例：
+					insert
+					into users
+					values(13, '赵二', 'ze', '1111111');
+					select LAST_INSERT_ID();
+	
+	实现方式：
+		修改mapper.xml中对应的insert插入语句
+			例：
+				<insert id="getInsert" parameterType="users">
+					<selectKey keyProperty="id" resultType="int" order="AFTER">
+						select LAST_INSERT_ID()
+					</selectKey>
+					INSERT INTO users
+					VALUES (#{id}, #{name}, #{user}, #{password})
+				</insert>
+			注意：
+				keyProperty：users对象的哪个属性来接收返回值
+				resultType：返回的主键类型
+				order：在插入语句前返回主键值(BEFORE)还是插入语句后返回主键值(AFTER)
+-> 主键生成
+	在mysql与java中都有一个uuid。
+	mysql中：
+		select uuid();			// bd0c3f9b-fb57-11ec-8458-00ff3d42c494
+	java中：
+		UUID uuid = UUID.randomUUID();
+		// 注意：类型是UUID，要想转换为字符串可以uuid.toString()
+
+
+-> 动态sql实现
+	动态sql：
+		可以定义代码片段，可以进行逻辑判断，可以进行循环处理(批处理)，使条件判断更为简单。
+	
+	1、<sql>
+		用来定义代码片段，可以将所有列名，或复杂的条件定义为代码片段，供使用时调用
+	2、<include>
+		用来引用<sql>定义的代码片段。
+		例：
+			<!--将列名封装起来-->
+			<sql id="getCol">
+				id, name, user, password
+			</sql>
+			
+			<!--查询Users全表-->
+			<select id="getSelect01" resultType="users">
+				SELECT <include refid="getCol"></include>		// 使用id = getCol调用<sql>
+				FROM users
+			</select>
+			
+	3、<if>
+		进行条件判断
+	4、<where>
+		进行多条件拼接，在查询，删除，更新中使用
+		例：
+			<!--动态条件查询-->
+			<select id="getSelect05" resultType="users" parameterType="users">
+				SELECT <include refid="getCol"></include>
+				FROM users
+				<where>
+					// 这个id是指传参的parameterType="users"对象中的id属性名。
+					<if test="id != null">
+						-- 第一个id是数据库字段名，第二个id是users对象中的id属性名。
+						AND id >= #{id}
+					</if>
+					<if test="name != null">
+						AND name LIKE concat('%', #{name}, '%')
+					</if>
+					<if test="user != null">
+						AND user LIKE concat('%',#{user},'%')
+					</if>
+					<if test="password != null">
+						AND password LIKE concat('%',#{password},'%')
+					</if>
+				</where>
+			</select>
+		
+			调用：
+				mapper.getSelect05(new Users(null, "王", "w", null)).forEach(u -> System.out.println(u));
+			
+			注意：
+				1、实际在<where>首行存在一个'1=1'的条件
+				2、test的值是if()中的判断表达式。
+					例：<if test="id != null">
+						当传入的users对象中id属性值不是null时，才会添加下面的条件
+				3、当实体类中只有全部属性的构造方法时，创建传入参数users对象时，如果不想要某个条件，必须指定对应属性值为null。
+					<当然，也可以在if后加||id != ''，表示传入参数为''时也不执行id这个条件。或者，添加一个不全属性的构造方法。
+					或者，实体类直接创建一个无参构造方法，使用set函数对属性赋值>
+			
+	5、<set>
+		选择性的更新记录。
+			// 之前的更新操作是将记录全部更新了一遍。
+		例：
+			<!--选择性的更新-->
+			<update id="getUpdate02" parameterType="users">
+				UPDATE users
+				<set>
+					<if test="name != null">
+						name = #{name},
+					</if>
+					<if test="user != null">
+						user = #{user},
+					</if>
+					<if test="password != null">
+						password = #{password}
+					</if>
+				</set>
+				WHERE id = #{id}
+			</update>
+			注意：
+				1、最后一个if中的更新字段可以加','，也可以不添加','。但是，前面的更新必须添加','。
+				2、set标签中必须有更新的字段，若创建一个空的实体对象进行传参，那么执行报错。(至少更新一个字段值)
+			
+			调用：
+				int count = mapper.getUpdate02(new Users(8, null, "wangliu", "1111"));
+				System.out.println(count);
+				sqlSession.commit();
+	
+	6、<foreach>
+		用来进行循环遍历，完成循环条件查询，批量删除，批量增加，批量更新。
+		例：
+			<!--查询多个指定id的用户信息-->
+			<select id="getSelect06" resultType="users">		// 非实体类参数与非基本类型参数都不用写参数类型parameterType
+				SELECT <include refid="getCol"></include>
+				FROM users
+				WHERE id in
+					<foreach collection="array" item="id" separator="," open="(" close=")">
+						#{id}
+					</foreach>
+			</select>
+			注意：
+				foreach标签中属性：
+					collection：表示当前传入参数需要做foreach操作，接收这个参数的类型，该属性只有3种值(list，array，map)
+					item：集合/数组遍历时元素的别名，就像是for循环中的i。注意：#{id}中的id就是这个别名。
+					separator：元素之间的分隔符。注意：在in操作中需要分隔各参数值。
+					open：foreach代码的开始符号，一般属性值为'('。
+					close：foreach代码的结束符号，一般属性值为')'。
+						注意：如果sql中写了括号，则foreach中就不需要写open和close了。但是规范还是需要写的。
+					
+			// 调用
+			int[] array = {1,2,3,4};
+			mapper.getSelect06(array).forEach(users -> System.out.println(users));
+
+-> 指定参数位置绑定
+	可以不使用对象的属性进行参数值的绑定，使用下标值。
+		<高版本3.3后>
+			#{arg0}
+		<3.3前>
+			#{0}、#{1}
+	例：
+		UsersMapper接口中：
+			List<Users> getSelect07(String s1, String s2);
+		UsersMapper.xml中；
+			<select id="getSelect07" resultType="users">
+				SELECT <include refid="getCol"></include> FROM users WHERE id BETWEEN #{arg0} AND #{arg1}
+			</select>
+		测试类：
+			public void testL(){
+				mapper.getSelect07("1", "3").forEach(users -> System.out.println(users));
+			}
+
+-> 入参是map
+	当传递参数的数据有多个时，不适合使用下标或指定名称进行传参，并且参数不一定与实体对象的成员变量一致，因此采用map方式传参。
+	<实际上就是通过map集合的key值对应出实际参数值的(value值)>
+	例：
+		UsersMapper接口中：
+			List<Users> getSelect08(Map<String, Integer> map);
+		UsersMapper.xml中；
+			<select id="getSelect08" resultType="users" parameterType="map">
+				SELECT <include refid="getCol"></include> FROM users WHERE id BETWEEN #{id_key01} AND #{id_key02}
+			</select>
+		测试类：
+			Map<String, Integer> hashMap = new HashMap<>();
+			hashMap.put("id_key01", 1);
+			hashMap.put("id_key02", 3);
+			mapper.getSelect08(hashMap).forEach(users -> System.out.println(users));
+			
+		注意：
+			1、parameterType="map"可以不用写。
+			2、在mapper.xml中占位符中的参数实际就是测试类创建的map集合的key值。
+	
+-> map集合封装返回值
+	场景：如果返回数据不能使用实体对象进行封装，可能查询的数据来自多张表中的某些列(join关联)，这种情况下，使用map集合接收查询返回值。
+	注意：map返回方式破坏了对象的封装，返回来的数据都是一个一个单独的数据，之间不相关(Object类型)。
+		<map使用表中的列名或者别名做为键名进行返回数据>
+		
+		<注意：下面的查询都是使用了一个数据表查询并接收返回值的，但实际这种map接收的方式是为了解决多表关联返回查询的>
+	-> map封装返回值是一行
+		UsersMapper接口中：
+			Map<String,Object> getSelect09(int id);
+		UsersMapper.xml中；
+		    <select id="getSelect09" resultType="map" parameterType="_int">
+				SELECT <include refid="getCol"></include> FROM users WHERE id = #{id}
+			</select>
+		测试类：
+	        Map map = mapper.getSelect09(1);
+			Object id = map.get("id");
+			Object name = map.get("name");
+			Object user = map.get("user");
+			Object password = map.get("password");
+			System.out.println(id +","+name+","+user+","+password);
+		注意：
+			1、必须只能返回一条数据
+			2、接口中的返回值是用map类型接收的。
+			3、map的key值实际上是查询出来的一行数据的字段名，而value值就是实际查询出来的值。
+			例：
+				{"id"=1,"name"="张三","user"="zhangsan","password"=1111}
+				key值为字段名，value为查询返回值
+	
+	-> map封装返回值是多行
+		上面返回一行是使用map接收的，也就是说每返回一行记录就是一个map集合，使用一个List集合接收这些map就可以实现多行返回值保存。
+		UsersMapper接口中：
+			List<Map<String,Object>> getSelect10(int[] i);
+		UsersMapper.xml中：
+			<select id="getSelect10" resultType="map">
+				SELECT <include refid="getCol"></include> FROM users
+				WHERE id in
+				<foreach collection="array" separator="," item="s" open="(" close=")">
+					#{s}
+				</foreach>
+			</select>
+		测试类：
+			int[] array = {1, 2, 3};
+			mapper.getSelect10(array).forEach(map -> System.out.println(map));
+		
+		注意：返回值是一个List<Map>类型，与List<Users>一样，resultType的值写泛型即可。
+		
+-> 数据表列名与实体类属性名名称不一致
+	<当列名与实体类属性名不一致时，查询语句可以正常查询，但是查询到的信息不能通过resultType存储到Users实体类中>
+	方案一：
+		别名处理
+			在写查询语句时，将select查询的字段名进行赋别名，让这个别名与实体类中的属性名称一致。
+		UsersMapper.xml中：
+			<!--封装列名-->
+			<sql id="colName">
+				id as ids, name as names, user as users, password as passwords
+			</sql>
+			// 注意：将列名进行封装时就赋别名，别名与实体类属性名一致
+
+			<!--查询全表-->
+			<select id="getSelect01" resultType="users">
+				SELECT <include refid="colName"></include>
+				FROM users
+			</select>
+		
+	方案二：
+		使用resultMap处理
+			手工完成查询数据的字段名与实体类属性名的映射关系
+		UsersMapper.xml中：
+			<!--查询全表(resultMap处理)-->
+			<resultMap id="userMap" type="users">
+				<!--主键绑定-->
+				<id property="ids" column="id"></id>
+				<!--非主键绑定-->
+				<result property="names" column="name"></result>
+				<result property="users" column="user"></result>
+				<result property="passwords" column="password"></result>
+			</resultMap>
+			
+			<select id="getSelect02" resultMap="userMap">
+				SELECT id, name, user, password FROM users
+			</select>
+		注意：
+			1、将返回值类型resultType换成了resultMap，resultMap属性值为映射名称
+			2、创建resultMap映射关系
+				<resultMap>
+				属性：
+					id：当前映射关系名称，查询时按照id值使用这个映射关系。
+					type：返回值类型，与resultType的返回值类型值一样。
+			3、
+				-> 主键绑定
+					<id>
+					属性：
+						property：实体类的属性名称
+						column：数据表对应的字段名
+				-> 非主键绑定
+					<result>
+					属性：
+						property：实体类的属性名称
+						column：数据表对应的字段名
+
+-> 数据表关联查询
+	一对多，多对一，多对多，一对一
+	难点：
+		查询到的语句返回字段值并不只是一个表中的字段，而是多张表关联查询的结果，此时接收返回值的类型就不是正常意义上的实体类能接受的。
+		前面有方法使用map集合接收这种返回值，此处使用新的方法接收返回值(对实体类中的字段进行外键标记)。
+		
+		例：一个学生选择多个课程，可以对应多个成绩。
+			-> 对Student表做实体类，同时添加一个属性用于接收成绩表CS的关联值。
+					private String id;
+					private String name;
+					private int age;
+					private String gender;
+					private String address;
+					private String xk;
+					// 该学生的选课表
+					private List<SC> courseList;		// 重点
+				注意：courseList是一个存有多个SC的的集合。
+			-> 此时这个实体类完全可以接收关联后返回的数据。
+				
+		如何让mapper.xml查询数据并接收查询结果集？
+			映射是重点：
+				-> 绑定实体类属性名与数据表字段名的映射关系。
+					<resultMap id="student01" type="student01">
+						<!--主键绑定-->
+						<id property="id" column="id"></id>
+						
+						<!--非主键绑定-->
+						<result property="name" column="name"></result>
+						<result property="age" column="age"></result>
+						<result property="gender" column="gender"></result>
+						<result property="address" column="address"></result>
+						<result property="xk" column="xk"></result>
+						
+						<!--非原表字段courseList绑定-->
+						<!--
+							此处collection是一个集合，使用collection是因为student01实体类中接收SC的是一个集合
+							假如：
+								private List<SC> courseList 换成 private SC sc
+								
+								下面代码变成：
+									<association property="sc" javaType="sc"></association>
+									标签内不变。
+						-->
+						<collection property="courseList" ofType="sc">
+							<!--主键绑定-->
+							<id property="sno" column="sno"></id>
+							<id property="cno" column="cno"></id>
+							<!--非主键绑定-->
+							<result property="grade" column="grade"></result>
+						</collection>
+					</resultMap>
+					
+					注意：
+						1、映射绑定的是Student01实体类与表字段名的关系。
+						2、映射绑定：
+							-> 主键绑定
+							-> 非主键绑定
+							-> 实体类中非Student01表中字段的属性绑定(courseList)
+								注：<collection property="courseList" ofType="sc">
+										表示：Student01实体类中的属性courseList与类型为SC的类进行绑定。
+									如果student01实体类使用SC类接收(private SC sc)，则此处不能使用collection与ofType，
+								改用association与javaType。
+									
+								<实际上内部绑定的是sc表与对应实体类的关系>
+					
+				-> 查询语句
+					<!--查询每个学生的成绩-->
+					<select id="getSelect01" resultMap="student01" parameterType="string">
+						SELECT <include refid="colName"></include>, sno, cno, grade
+						FROM student01 as A
+						LEFT JOIN sc as B ON A.id = B.sno
+						WHERE id = #{id}
+					</select>
+			
+			
+-> 事务
+	多个操作同时完成，或同时失败称为事务处理
+	特性：
+		一致性、持久性、原子性、隔离性
+	
+	mybatis如何控制事务的？
+		在核心配置文件中：配置环境变量时
+			<transactionManager type="JDBC"></transactionManager>
+			// jdbc表示：交给程序员手动进行提交与回滚。
+	
+	如何设置自动提交事务？
+		从工厂中创建SqlSession时：
+			sqlSession = factory.openSession();		// false，默认手工提交事务
+		自动提交事务
+			sqlSession = factory.openSession(true);
+			
+-> 缓存
+	将用户经常查询的数据放在缓存(内存)中，用户查询数据不用从磁盘上(关系型数据库)查询。从缓存中查询能提高查询效率。
+	mybatis中的缓存：
+		1、mybatis提供查询缓存，用于减轻数据库的压力，提高数据库性能。
+		2、mybatis框架提供了两级缓存，一级缓存和二级缓存，默认开启一级缓存。
+		<查询时先在缓存中查，缓存中没有就进数据库查询。修改数据库值，则清空缓存>
+	
+		缓存作用域：
+			一级缓存使用的是SqlSession的作用域，同一个SqlSession共享一级缓存的数据。
+			二级缓存使用的是mapper的作用域，不同的SqlSession只要访问的是同一个mapper.xml文件，则共享二级缓存作用域。
+		
+		如何开启二级缓存？
+			1、在核心配置文件中配置
+				<settings>
+					<!--开启二级缓存-->
+					<setting name="cacheEnabled" value="true"/>
+				</settings>
+			2、在mapper.xml中使用<cache></cache>,表名该mapper.xml开启二级缓存
+			3、实体类必须实现java.io.serializable接口，保证实体可序列化。
+			
+-> ORM
+	ORM(Object Relational Mapping)对象关系映射
+	java语言中以对象的方式操作数据，存到数据库中是以表的形式进行储存，实体类对象中的属性(成员变量)与表中的列之间数据互换称为映射。
+	
+	持久化操作:将对象保存到关系型数据库中、将关系型数据库中的数据读取出来以对象的形式封装。
+
+	MyBatis框架实际就是一种持久化层优秀的框架。
+
+
+
+
+		
+			
+			
+			
+			
+			
+			
+		
+		
+		

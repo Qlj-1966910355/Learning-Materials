@@ -1,0 +1,334 @@
+Dubbo
+	https://dubbo.apache.org/zh/index.html
+	
+	-> 分布式框架
+		
+		分布式系统：若干独立系统的集合，但是用户使用起来像是在使用一套系统。
+		
+		-> 为什么使用分布式系统：
+			规模逐步扩大和业务的复杂，单机计算机承受不住，所以使用分布式系统。
+		
+		
+	-> RPC
+		远程过程调用。
+			是一种进程间的通讯方式，它是一种技术思想，而不是规范。它允许程序调用另一个地址空间(通常是共享网络的另一台机器上)的过程或函数，而不用
+		程序员显式编码这个远程调用的细节。即程序员无论是调用本地的还是远程的函数。本质上编写的调用代码基本相同。
+		
+			也就是说，两台服务器A，B，一个应用部署在A服务器上，想要调用B服务器上应用提供函数/方法，由于不在一个内存空间，不能直接调用，需要通过
+		网络来表达调用的语义和传达调用的数据。
+		
+		<为什么要用RPC> 
+			就是无法在一个进程内，甚至一个计算机内通过本地调用的方式完成需求，比如不同的系统间的通讯，甚至不同的组织间通讯，由于计算能力需要横向
+		扩展，需要在多台服务器组成的集群上部署应用。RPC就是要像调用本地函数一样取调用远程函数。
+		
+		-> 远程调用面临的问题
+			<以一个方法调用为例>
+			1、Call ID映射
+				在本地调用时，函数体的调用是直接通过函数指针进行指定的，调用函数时，编译器会自动调用它的函数指针。
+				在远程调用时，由于两个进程的地址空间完全不一样，不能像本地调用一样直接使用指针调用。
+				所以：
+					在RPC中所有函数都必须有一个自己的ID，这个ID在所有进程中都是唯一的。客户端在做远程过程调用时必须携带这个函数ID。然后在客户端与
+				服务端分别维护一个字典{函数：Call ID}。相同的函数对应的ID必须相同。
+			2、序列化和反序列化
+				客户端与服务端的函数调用需要传递一些参数。
+				本地调用时，只需要将实际参数放在内存中，函数自己进行获取即可。
+				远程调用就需要进行传输才能使用参数对象。而在数据传输时，使用的是二进制的数据传输方式，所以客户端需要将参数对象进行序列化，
+				序列化后，服务端可以接收到二进制的数据对象，只需要进行反序列化就可以拿到参数对象。同理，服务端返回数据也需要序列化进行传输。
+			3、网络传输
+				远程调用往往是建立在网络连接的基础上的，所有的数据都需要使用网络进行传输，因此就需要一个网络传输层。
+				网络传输的协议实际上没有限制，只要能彼此传输数据即可。大部分的RPC框架都使用TCP协议。
+				
+		-> RPC远程调用过程
+			<远程调用时并不是客户端直接传输给服务端，而客户端与服务端都有一个“管理员”，负责彼此的数据传输工作>
+			
+				客户端(Client) <====> 客户端存根(Client Stub) <====> 服务端存根(Server Stub) <====> 服务端(Server)
+				
+			客户端(Client)：服务地调用发起方，也可以称作消费者。
+			客户端存根(Client Stub)：该程序运行在客户端所在的计算机上，主要用来存储要调用的服务器地址，另外，该程序还负责客户端请求远程服务器
+															程序的数据信息打包成数据包，通过网络发送给服务端Stub程序；其次，还用于接收服务端Stub发送的相应结果数据包，
+															并解析返回给客户端。
+			服务端存根(Server Stub)：接收客户端Stub程序通过网络发送的请求消息数据包，并调用服务端中真正的程序功能方法，完成功能调用。其次，
+															将服务端的执行结果进行数据处理打包，发送给客户端Stub。
+			服务端(Server)：远程计算机上运行的程序，其中包含客户端调用的方法。
+			
+		
+	-> Dubbo
+			
+			-> Dubbo运行工作原理
+				服务提供者(Provider)：暴露服务的服务提供方<服务端>,服务提供者在启动时，向注册中心注册自己提供的服务。
+									Container<服务容器>：服务运行的容器。<服务容器只是一个简单的Main方法，并加载一个简单的Spring容器，用于暴露服务>
+				服务消费者(Consumer)：调用远程服务的服务消费方<客户端>，服务消费者在启动时，向注册中心订阅自己所需要的服务，服务消费者从提供服务
+														的地址列表中，且基于软负载均衡算法，选一台提供者进行调用，如果调用失败，再选另一台调用。
+				注册中心(Registry)：注册中心返回服务提供者地址列表给消费者，如果有变更，注册中心将基于长连接推送变更数据给消费者。
+				监控中心(Monitor)：服务消费者和提供者，在内存中累计调用次数和调用时间，定时每分钟发送一次统计数据到监控中心。
+				
+				-> 调用关系说明<Dubbo远程调用原理>
+					1、服务容器负责启动，加载，运行服务提供者<服务端>
+					2、服务提供者在启动时，像注册中心注册自己提供的服务
+					3、服务消费者在启动时，向注册中心订阅自己所需的服务
+					4、注册中心返回服务提供者地址列表给消费者，如有变更，注册中心将基于长连接推送变更数据给消费者
+					5、服务消费者从地址列表中，基于负载均衡算法，选一台提供者进行调用(RPC),如果调用失败，再选另一台调用
+					6、服务消费者和提供者，在内存中累计调用次数和调用时间，定时每分钟发送一次统计数据到监控中心。
+			
+			-> 特性
+				1、提供高性能的基于代理的远程调用能力，服务以接口为粒度，为开发者屏蔽远程调用的底层细节。<类似于mybatis，只需要调用数据接口>
+				2、内置多种负载均衡策略，智能感知下游的节点健康状况，显著减少调用延迟，提高系统吞吐量
+				3、支持多种注册中心服务，服务实例上下线实时感知。<将所有服务放在注册中心，进行维护统一管理>
+				4、高度可扩展能力
+				5、运行期流量调度
+				6、可视化的服务治理与运维
+			
+	-> zookeeper注册中心
+		它是一个分布式服务框架，主要用来解决分布式应用中经常遇到的一些数据管理问题，
+			如：统一命名服务、状态同步服务、集群管理、分布式应用配置项的管理等
+		简单来讲：zookeeper=文件系统+监听通知机制
+		
+		-> 下载安装
+			下载：http://mirror.bit.edu.cn/apache/zookeeper/
+			
+			3.5前：
+				解压后，运行/bin/zkServer.cmd <启动服务，linux运行.sh>，初次运行会报错，没有zoo.cfg配置文件
+					可能遇到问题：闪退！
+					<解决：编辑zkServer.cmd文件末尾(endlocal上面)添加'pause'。运行时报错会停止，方便找错>
+					错误：org.apache.zookeeper.server.quorum.QuorumPeerMain
+			3.5后：下载带有bin标识的压缩包。apache-zookeeper-3.6.3-bin.tar.gz
+				添加‘pause’后，出现错误：zookeeper找不到zoo.cfg这个文件
+					<解决：zoo_sample.cfg 改成zoo.cfg (尽量复制一份)>  
+						zoo.cfg文件中的内容包括：clientPort=2181《默认端口号》；dataDir=/tmp/zookeeper《临时数据存储位置》
+						
+			启动服务zkServer.cmd后，不要关闭。打开客户端:zkCli.cmd	<成功打开客户端：Welcome to ZooKeeper!>
+			
+			
+		-> 在客户端中操作
+			1、ls /			列出zookeeper根下保存的所有节点
+			2、create -e /qlj 123		创建一个结点<不能创建同名的节点>
+			3、get /qlj					获取'/qlj'节点的值
+			
+	-> Dubbo下载安装
+		dubbo并不是一个服务软件，只是一个jar包，它能够将java程序连接到zookeeper，并利用zookeeper消费、提供服务。
+		为了更好地管理监控dubbo，官方提供了一个可视化的监控程序dubbo-admin。不安装也不会影响使用。
+		
+		dubbo在使用时只需要导入dubbo依赖即可。
+		<以下是dubbo-admin下载启动，只是一个监控中心，可以不要>
+			-> 下载dubbo-admin
+				地址：https://github.com/apache/dubbo-admin/tree/master
+			
+				解压后，修改配置文件中的zookeeper地址
+					<在dubbo-admin\src\main\resources\application.properties位置：配置：dubbo.registry.address=zookeeper://127.0.0.1:2181>
+					(如果zookeeper安装时并没有修改zookeeper的端口号，此处可省略)
+			
+			-> 将dubbo-admin项目打包
+				在项目目录下打开cmd打包：mvn clean package -Dmaven.test.skip=true		(D:\apache-repository\dubbo-admin\dubbo-admin-master-0.2.0目录内)
+		
+				当然也可以idea中打开项目打包或网上直接找jar包。
+			
+			-> 运行jar包
+				注意：未打开zookeeper时运行会一直报错,但不会影响该项目运行。<必须先打开zookeeper(zkServer.cmd)>
+				
+				cmd中运行：java -jar dubbo-admin-0.0.1-SNAPSHOT.jar
+			
+			-> 启动项目后，查看监控页面
+				在浏览器中输入：http://localhost:7001/
+					输入默认密码：root	root
+		
+	-> springboot+dubbo+zookeeper项目远程调用
+	
+		一、创建提供者服务项目<springboot010-dubbo01>
+		
+			1、创建springboot项目<只需要勾选web组件>
+			2、pom中导入dubbo+zookeeper依赖
+				注意：
+					// dubbo依赖需要3.0以下的依赖，否则启动项目时，zookeeper服务会提示报错“远程主机强迫关闭了一个现有的连接”。
+					// 需要引入zkclient日志冲突依赖组件，排除slf4j
+				
+				<依赖如下：>
+					<!--导入dubbo+zookeeper依赖-->
+					<dependency>
+						<groupId>org.apache.dubbo</groupId>
+						<artifactId>dubbo-spring-boot-starter</artifactId>
+						<version>2.7.8</version>
+					</dependency>
+
+					<!--导入zkclient依赖-->
+					<dependency>
+						<groupId>com.github.sgroschupf</groupId>
+						<artifactId>zkclient</artifactId>
+						<version>0.1</version>
+					</dependency>
+					<!--引入zkclient,可能会日志冲突,还需要剔除日志依赖-->
+					<dependency>
+						<groupId>org.apache.curator</groupId>
+						<artifactId>curator-framework</artifactId>
+						<version>2.12.0</version>
+					</dependency>
+					<dependency>
+						<groupId>org.apache.curator</groupId>
+						<artifactId>curator-recipes</artifactId>
+						<version>2.12.0</version>
+					</dependency>
+					<dependency>
+						<groupId>org.apache.zookeeper</groupId>
+						<artifactId>zookeeper</artifactId>
+						<version>3.4.14</version>
+						<!--排除这个slf4j-log4j12-->
+						<exclusions>
+							<exclusion>
+								<groupId>org.slf4j</groupId>
+								<artifactId>slf4j-log4j12</artifactId>
+							</exclusion>
+						</exclusions>
+					</dependency>
+		
+			3、配置提供者服务与zookeeper之间的配置信息
+				server:
+				  port: 8001		#当前项目端口号
+
+				dubbo:
+				  #服务应用名称
+				  application:
+					name: springboot010-dubbo01
+				  #注册中心地址
+				  registry:
+					address: zookeeper://localhost:2181
+				  #哪些服务需要被注册
+				  scan:
+					base-packages: com.sg.service
+			
+			4、创建service层业务功能
+				
+				-> 接口
+					public interface ProviderService {
+						String getProvider();
+					}
+					
+				-> 实现类
+					@Component            // spring扫描
+					@DubboService       // 扫描该注解时，dubbo会将该服务自动注册到zookeeper注册中心
+					public class ProviderServiceImpl implements ProviderService {
+						@Override
+						public String getProvider() {
+							return "屈刘杰学习Dubbo+Zookeeper";
+						}
+					}
+					注意：@DubboService 扫描到当前注解后，dubbo会将该类注册到zookeeper中。低版本中使用@Service注解，需要注意导入的包名。
+					
+					
+		二、启动zookeeper注册中心
+			双击：bin -> zkServer.cmd
+		
+		
+		三、启动提供者服务springboot010-dubbo01项目
+			点击：com.sg.Springboot010Dubbo01Application启动项目
+		
+		
+		四、启动dubbo-admin项目，监测提供者服务是否已经加载到zookeeper中。
+			1、在cmd中启动：java -jar dubbo-admin-0.0.1-SNAPSHOT.jar
+			2、启动成功后在浏览器中访问：http://localhost:7001/
+			3、登录：root root
+			4、‘服务治理’中将可以查看提供者服务的状态信息。
+			
+			
+		五、创建消费者服务项目<springboot011-dubbo02>
+			1、创建springboot项目<只勾选web>
+			2、与提供者服务pom文件的依赖一致。
+				复制上面的依赖即可。
+			3、配置yaml文件
+				消费者要去zookeeper注册中心取服务。
+				server:
+				  port: 8002		#消费者服务的端口号
+
+				#消费者要去zookeeper注册中心取服务
+				dubbo:
+				  #暴露自己服务的名字
+				  application:
+					name: springboot011-dubbo02
+				  #zookeeper注册中心位置
+				  registry:
+					address: zookeeper://localhost:2181
+		
+			4、创建service层调用提供者的方法
+				
+				-> 创建一个service类
+					@Service
+					public class UserServiceImpl {
+					
+						// 想要拿到dubbo01项目的服务提供者的Service(getProvider())
+						// 去注册中心拿到提供者服务
+						// <注意:当前项目中并没有提供者服务的接口类。解决：1、导入提供者服务的依赖；2、将提供者服务中的接口以及包复制过来(只要接口)>
+						@DubboReference     // 与@Autowired作用一样
+						ProviderService providerService;
+
+						public void getProvader(){
+							String provider = providerService.getProvider();
+							System.out.println("从注册中心的dubbo01服务中拿到了=>" + provider);
+						}
+					}
+					
+					注意：@DubboReference		// 与@Autowired作用一样
+					
+				-> 将提供者服务项目中的接口类复制到消费者项目中，否则找不到调用的方法而报错。<接口类放置位置必须一致>
+				
+				
+			5、测试是否在zookeeper中取到提供者服务中的方法
+				在测试类中调用UserServiceImpl的方法。
+					@Autowired
+					UserServiceImpl userService;
+
+					@Test
+					void contextLoads() {
+						userService.getProvader();
+					}
+			
+			6、直接运行，成功后会输出提供者服务中的方法内容。
+				
+
+-------------------------------------------------------------------------------------------------------------------			
+		
+-> 微服务架构
+	分布式架构所带来的四个核心问题：
+		1、这么多的服务，客户端如何其访问？
+		2、服务众多，如何实现服务与服务之间的通信？
+		3、这么多服务，如何进行治理？
+		4、服务挂了怎么处理？
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+	
+	
+	
+	
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		

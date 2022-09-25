@@ -1,0 +1,807 @@
+Spring框架概念
+	它是一个容器，整合其他框架的框架，它的核心是IOC(控制反转)和AOP(面向切面编程)，由20多个模块构成。
+	<提供了展现层SpringMVC和持久层Spring JDBCTemplate以及业务层事务管理等众多企业级应用技术>
+	
+	作用：主要作用就是为代码"解耦"，降低代码间的耦合度。让对象与对象(模块与模块)之间关系不是使用代码关联，而是通过配置说明，
+		即在Spring中说明对象的关系。
+	
+	优点：Spring容器不装文本、数字。装的是对象。
+		-> 轻量级
+			由20多个模块构成，每个模块的jar包都很小。
+		-> 针对接口编程，解耦合
+			使用接口，项目可扩展能力强，可维护性高，接口不关心实现类的类型，使用时接口指向实现类，切换实现类即可切换功能。
+		-> AOP 面向切面编程的支持
+			将公共的，通用的重复代码进行单独开发，在需要的时候反转回去，底层的原理是动态代理。
+		-> 方便集成各种优秀的框架
+			整合了其他框架，使其它框架更加易用。
+			
+-> 什么是IOC
+	控制反转IOC，由Spring容器进行对象的创建和依赖注入，程序员使用时直接取出使用。
+	->什么是反转？
+		正转：由程序员进行对象的创建和依赖注入称为正转。程序员说了算。
+			eg：
+				Student s = new Student();
+				s.setName("qlj");
+				s.setAge(23);
+		反转：由Spring容器创建对象和依赖注入称为反转，将控制权从程序员手中夺走。交给Spring容器，称为反转。容器说了算。
+			// Spring容器负责对象的创建
+			<bean id="stu" class="com.sg.pojo.Student">
+				// Spring容器依赖注入值
+				<property name="name" value="qlj">
+				<property name="age" value=23>
+			</bean>
+			
+-> 基于xml的IOC
+	1、创建对象
+		启动容器的同时就会创建该对象。
+		<bean id="s" class="com.sg.pojo.Student"></bean>
+			创建学生对象（默认调用无参构造方法）
+				等同于在Test中实现Student s = new Student();
+				id：对象名
+				class：对象的类型，底层通过反射构建对象，需要全限定包名。
+			
+	2、给创建的对象赋值
+		注意：值注入时不需要关注value传入的类型，规则就是字符串，传入后自动匹配为相应类型。
+		-> 使用setter注入
+			赋值时实际通过属性的setter方法，所以类中必须包含属性的setXxx()方法。
+			分类：
+				简单类型注入(value)；引用类型注入(ref)
+			
+			-> 简单类型注入
+				8种基本数据类型+String类型。
+				例：
+					<bean id="s" class="com.sg.pojo.Student">
+						<property name="id" value="17100305107"></property>
+						<property name="name" value="qlj"></property>
+					</bean>
+				解释：
+					name：成员变量名称
+					value：对简单成员变量赋值
+				相当于：
+					Student s = new Student();
+					s.setId("17100305107");
+					s.setName("qlj");
+				
+			-> 引用类型注入
+				非简单类型。
+				比如：在Student类中，存在成员变量：private School school;
+					School类引用的成员变量注入值时使用ref属性。
+					
+				例：
+					// 创建School类对象
+					<bean id="school" class="com.sg.pojo2.School">
+						<property name="name" value="西安工业大学"></property>
+						<property name="id" value="xatu"></property>
+						<property name="pm" value="200"></property>
+					</bean>
+					相当于：
+						School school = new School();
+						school.setName("西安工业大学");
+						school.setId("xatu");
+						school.setPm("200");
+					
+					// 创建Student类对象
+					// 注意：name="school"时，赋值使用的是ref赋值，直接引用了上面School类对象(通过id获取)
+					<bean id="student" class="com.sg.pojo2.Student">
+						<property name="id" value="17100305107"></property>
+						<property name="name" value="屈刘杰"></property>
+						<property name="school" ref="school"></property>
+					</bean>
+					相当于：
+						Student student = new Student();
+						student.setId("17100305107");
+						student.setName("屈刘杰");
+						student.setSchool(school);
+							School school = new School();
+							school.setName("西安工业大学");
+							school.setId("xatu");
+							school.setPm("200");
+				
+				注意：
+					引用类型自动注入：
+						在<bean id="student" class="com.sg.pojo2.Student">中添加autowire="byType"（按类型注入）
+						如果按类型注入时只有一个匹配类型的对象，则可以直接将<property name="school" ref="school"></property>去掉
+		
+		-> 使用构造方法注入
+			注意：上面使用setter方法注入时，默认调用的是无参构造方法，要想给成员变量赋值只能使用setter方法。
+				// 该方法不需要添加setter方法
+			1、使用构造方法的参数名称进行注入值
+				// 传参时使用name。
+				
+				<bean id="school" class="com.sg.pojo3.School">
+					<constructor-arg name="id" value="xatu"></constructor-arg>
+					<constructor-arg name="name" value="西安工业大学"></constructor-arg>
+					<constructor-arg name="address" value="西安市"></constructor-arg>
+				</bean>
+				注意：
+					-> constructor-arg：使用构造方法注入对象属性。
+					-> name：School类构造方法的参数名称(不是成员变量名) *************注意**************
+					-> value：给成员变量的值
+					// 加入使用的是全参构造方法创建对象，那么必须将所有成员变量都赋值。
+					相当于：
+						School school = new School("xatu", "西安工业大学", "西安市");
+						
+			2、使用构造方法参数的下标注入值
+				<!--使用构造方法参数的下标注入值-->
+				<!--使用两个参数的构造方法-->
+				<bean id="school02" class="com.sg.pojo3.School">
+					<constructor-arg index="0" value="xajt"></constructor-arg>
+					<constructor-arg index="1" value="西安交通大学"></constructor-arg>
+				</bean>
+
+			3、使用默认构造方法的参数顺序注入值
+				注意：顺序不能改变，按照构造方法的参数顺序。
+				<bean id="s02" class="com.sg.pojo3.Student">
+					<constructor-arg value="17100305108"></constructor-arg>
+					<constructor-arg value="wzx"></constructor-arg>
+					<constructor-arg ref="school02"></constructor-arg>
+				</bean>
+
+	3、测试
+		// 如果想从spring容器中取出对象，则要先创建容器对象，并启动才能创建对象
+		ClassPathXmlApplicationContext ac = new ClassPathXmlApplicationContext("s01/applicationContext.xml");
+		// 取出对象
+		Student s = (Student)ac.getBean("s");
+		// 调用功能
+		s.toString();
+
+
+-> 基于注解的IOC
+	基于注解开发时，必须先配置包扫描
+		-> 单个包扫描(推荐)
+			<context:component-scan base-package="com.sg.dao"></context:component-scan>
+			<context:component-scan base-package="com.sg.service.impl"></context:component-scan>
+			<context:component-scan base-package="com.sg.controller"></context:component-scan>
+		-> 多个包扫描
+			分隔符为空格或逗号或分号
+			<context:component-scan base-package="com.sg.dao com.sg.service.impl, com.sg.controller"></context:component-scan>
+		-> 扫描根包(不推荐)
+			会扫描所有的注释
+			<context:component-scan base-package="com.sg"></context:component-scan>
+	作用：扫描com.sg包下的所有注解信息。
+	
+	1、创建对象
+		Spring架构中，启动容器时就会创建对象。
+		@Component：可以创建任意的对象。创建对象后，该对象的名称就是被注释的类名(驼峰命名)。也可以指定对象的名称@Component("名称")
+		@Controller：专门创建控制器的对象(Servlet)。这种对象可以接收与响应用户请求。
+			@RestController：专门创建控制器对象，响应与接收用户请求
+		@Service：专门创建业务逻辑层对象。负责向下访问数据访问层处理完成后将结果返回给界面层。
+		@Repository：专门创建数据访问层对象。负责数据库的增删改查所有操作。
+	
+		@Controller与@RestController区别：
+			@Controller：配合视图解析器才能返回到指定页面。在对应的方法上配合@ResponseBody注解才能返回JSON，XML或自定义mediaType的内容到页面。
+			@RestController：相当于Controller和ResponseBod两者合并起来的作用，但是不能返回jsp页面。
+	2、依赖注入的注释(赋值)
+		-> 简单类型注入
+			在类的成员变量属性上添加注解。无须添加setter方法，如果有setter方法，也可以将注解添加到setter上。
+			@Value：用来给简单类型注入值
+			例：
+				@Value("17100305107")
+				private String id;
+				@Value("屈刘杰")
+				private String name;
+				@Value("23")
+				private int age;
+			
+		
+		-> 引用类型注入
+			1、@Autowired：使用类型注入值，从整个Bean工厂中搜索同源类型的对象进行注入
+				@Resource 默认按 byName 自动注入，也提供按照 byType 注入
+				同源类型：
+					a.被注入的类型与注入的类型是完全相同的类型。
+						被注入的类型：类中的成员变量类型，例如:private School s;
+						注入的类型：创建对象类型，例如：new School();		// 它的返回类型
+						即：School s = new School();
+					b.被注入的类型(父)与注入的类型(子)是父子类型
+						当School类继承了SupSchool类时。
+						即：SupSchool s = new School();
+					c.被注入的类型与注入的类型是实现关系。
+						被注入类型是一个接口类型，注入类型是实现接口的类型
+						即：School s = new SchoolImpl()		// School是接口
+						
+				例：
+					@Value("屈刘杰")
+					private String name;
+					@Value("23")
+					private String age;
+					// 按类型引用类型注入(从整个Bean工厂中搜索同源类型的对象进行注入,bean工厂中必须有注入的对象)
+					@Autowired
+					private School school;
+						
+			2、@Autowired
+			   @Qualifier：使用名称注入，从整个Bean工厂中搜索相同名称的对象进行注入
+				例：
+					@Value("屈刘杰")
+					private String name;
+					@Value("23")
+					private String age;
+					
+					// 使用名称注入
+					@Autowired
+					@Qualifier("school")			// 此处的名称是对应的School类指定的名称(@Component表示类名，@Component("其他名称"))
+					private School school;
+			
+			注意：
+				在使用@Autowired时，首先在容器中查询对应类型的bean
+					如果查询结果刚好为一个，就将该bean装配给@Autowired指定的数据。
+					如果查询的结果不止一个(继承或实现)，那么@Autowired会根据名称来查找(二次筛选)。
+						未指定名称时，该名称实际是成员变量名(驼峰)，如果成员变量名称是父类/接口名称，则装载对应的对象，名称不正确就会报错。
+					如果查询的结果为空，那么会抛出异常。解决方法时，使用required=false
+
+-> 三层架构的结构
+	界面层；业务逻辑层；数据访问层
+	Spring接管哪些对象的创建？
+		界面层的对象，业务逻辑层的对象，数据访问层的对象。
+	
+	-> 非Spring接管的三层架构结构
+		// 创建顺序
+			-> 实体类
+				com.sg.pojo	Users(实体类)
+			-> 数据访问层
+				com.sg.dao/mapper  UsersMapper(接口)
+								   UsersMapperImpl(实现类)
+			-> 业务逻辑层
+				com.sg.service  UsersService(接口)
+								UsersServiceImpl(实现类)
+			-> 界面层
+				com.sg.controller UsersController(Servlet)
+	
+		// idea中的结构
+			// 未携带后缀的都是包名
+			java
+				com.sg
+					controller		// 界面层
+						UsersController.java
+					dao				//数据访问层
+						UsersMapper.java(接口)
+						UsersMapperImpl.java
+					pojo			// 实体类
+						Users.java
+					service			// 业务逻辑层
+						UsersService.java(接口)
+						impl
+							UsersServiceImpl.java
+
+		-> 重点：各层之间的关联
+			数据访问层 <--> 业务逻辑层
+				// 注意：要想从数据访问层拿到数据，则逻辑处理层必须存在数据访问层的对象
+				// 实际在MyBatis下并不会直接实现数据访问层接口，而是直接通过Factory获取SqlSession对象，
+					然后通过动态代理后实现接口的对象来操作的。
+					
+				// 接口指向实现类
+					private UsersMapper usersMapper = new UsersMapperImpl();
+				通过数据访问层对象调用它的方法。
+
+			业务逻辑层 <--> 界面层
+				private UsersService usi = new UsersServiceImpl();
+				通过业务逻辑层对象调用它的方法。
+				
+	-> Spring接管后三层架构
+		Spring接管后的目录结构不变。
+		重点：
+			Spring接管后不需要new对象，由applicationContext.xml配置文件进行对象控制。
+		
+		改动位置：
+			1、业务逻辑层中创建的数据层引用成员变量修改。
+				private UsersMapper usersMapper;
+				// 不能直接对成员变量进行赋值了。
+				// 注意：添加setter方法
+			2、界面层中创建的逻辑处理引用成员变量修改。
+				private UsersService usi;
+				// 添加setter方法
+			3、创建核心配置文件
+				resources applicationContext.xml
+					配置：
+						<!--创建数据访问层的对象-->
+						<bean id="uMapper" class="com.sg.dao.UsersMapperImpl">
+						</bean>
+
+						<!--创建业务逻辑层的对象-->
+						<bean id="uService" class="com.sg.service.impl.UsersServiceImpl">
+							<property name="usersMapper" ref="uMapper"></property>
+						</bean>
+
+						<!--创建界面层对象-->
+						<bean id="uController" class="com.sg.controller.UsersController">
+							<property name="usi" ref="uService"></property>
+						</bean>
+						
+			
+-> 为项目指定多个核心配置文件
+	当项目足够大时，开发就不只是一个人，此时一个配置文件就会有隐患发生。
+	1、拆分配置文件策略
+		-> 按层拆分
+			applicationContext_mapper.xml(数据层)
+				<bean id="userMapper" class="com.sg.dao.UsersMapper"></bean>
+				<bean id="studentMapper" class="com.sg.dao.StudentsMapper"></bean>
+			applicationContext_service.xml(逻辑层)
+				<bean id="userService" class="com.sg.service.UsersService"></bean>
+				<bean id="studentService" class="com.sg.service.StudentsService"></bean>
+			applicationContext_controller.xml(界面层)
+				<bean id="userController" class="com.sg.service.UsersController"></bean>
+				<bean id="studentController" class="com.sg.service.StudentsController"></bean>
+		-> 按功能拆分
+			applicationContext_users.xml
+				<bean id="userMapper" class="com.sg.dao.UsersMapper"></bean>
+				<bean id="userService" class="com.sg.service.UsersService"></bean>
+				<bean id="userController" class="com.sg.service.UsersController"></bean>
+			applicationContext_students.xml
+				<bean id="studentMapper" class="com.sg.dao.StudentsMapper"></bean>
+				<bean id="studentService" class="com.sg.service.StudentsService"></bean>
+				<bean id="studentController" class="com.sg.service.StudentsController"></bean>
+		
+		注意：拆分后如果想要给对象注入值时，ref引用其他bean，则会显示报错，实际可以运行(忽略报错)。
+
+	2、配置文件整合策略
+		作用：将被拆分的配置文件整合到一个配置文件中。
+		原因：
+				因为在使用配置文件时，如果不进行整合，则使用就会很麻烦(配置文件太多)，
+			如果整合配置文件后，只需要使用这个整合的配置文件就可以使用到其他配置文件生成的对象
+		
+		-> 单个文件导入
+			<import resource="applicationContext_users.xml"></import>
+			<import resource="applicationContext_students.xml"></import>
+		-> 批量导入
+			// 模糊匹配导入
+			<import resource="applicationContext_*.xml"></import>
+
+
+-> 面向切面编程AOP
+	将分散在各个业务逻辑代码中相同的代码通过横向切割的方式抽取到一个独立的模块中！
+	切面：
+		公共的，通用的，重复的功能称为切面，面向切面编程就是将切面提取出来，单独开发，在需要调用的方法中通过动态代理的方式进行织入。
+	
+	-> 手写AOP框架
+		案例：图书购买系统				ctrl+alt+T	快速对代码块添加if语句、try语句。
+		切面：事务
+		1、版本一
+			业务与切面耦合在一起，没有拆分。
+			
+		2、版本二
+			使用子类代理的方式拆分业务和切面
+		
+		3、版本三
+			使用静态代理拆分业务和切面。业务与业务接口已经拆分，此时切面耦合在业务中。
+		
+		4、版本四
+			使用静态代理拆分业务和业务接口，切面与切面接口。
+			
+		5、版本五
+			使用动态代理完成对第四版本的优化。
+
+	-> Spring原生AOP切面
+		常见有下面几种：
+			// Before通知：在目标方法被调用前调用，涉及接口
+			// After通知：在目标方法调用后调用，涉及接口
+			// Throws通知：在目标方法抛出异常时调用，涉及接口
+			// Around通知：拦截对目标对象方法调用，涉及接口
+			
+		AOP常见术语：
+			// 切面：就是那些重复的、公共的，通常被称作为切面，例如：日志、事务、权限。
+			// 连接点：就是目标方法。因为在目标方法中要实现目标方法的功能与切面功能。
+			// 切入点：多个连接点构成切入点。切入点可以是一个目标方法，可以是类中的所有方法，可以是某个包下的所有类中的方法。
+			// 目标对象：操作谁，谁就是目标对象。
+			// 通知：来指定切入的时机。是在目标方法执行前还是执行后还是出错时，还是环绕目标方法切入切面功能。例：Before通知。
+	
+	-> AspectJ框架
+		AspectJ是一个优秀的面向切面框架，它扩展了java语言，提供了强大的切面实现。由于是基于java语言开发的，所有可以无缝衔接到代码中。
+		
+		-> 依赖
+			  <!--aspectj依赖添加-->
+			  <dependency>
+				  <groupId>org.springframework</groupId>
+				  <artifactId>spring-aspects</artifactId>
+				  <version>5.2.5.RELEASE</version>
+			  </dependency>
+			  
+		-> AspectJ常见通知
+			1、前置通知@Before：在方法执行之前执行，这个通知不能阻止连接点前的执行（除非它抛出一个异常）。
+			2、后置通知@AfterReturning：在方法正常返回结果之后执行。
+			3、环绕通知@Around：包围一个连接点（join point）的通知，如方法调用。这是最强大的一种通知类型。环绕通知可以在方法调用前后完成自定义的行为。
+								它也会选择是否继续执行连接点或直接返回它们自己的返回值或抛出异常来结束执行。
+			4、最终通知@After：在方法执行之后执行（不论是正常返回还是异常退出）。
+			5、定义切入点@Pointcut
+			
+		-> AspectJ切入点表达式
+			规范的表达式语句：
+				execution(访问权限 方法返回值 方法声明(参数) 异常类型)
+			简化表达式：
+				execution(方法返回值 方法声明(参数))
+			
+			通配符：
+				* 	代表任意个字符
+				..	如果出现在方法的参数中，则代表任意参数
+					如果出现在路径中，则代表本路径及其所有的子路径
+				
+				例:
+					execution(public * *(..))		// 任意的公共方法
+					execution(* set*(..))			// 任何一个带有以‘set’开始的方法
+					execution(* com.sg.service.impl.*.*(..))	// 任意的返回值类型，在com.sg.service.impl包下的任意类的任意方法的任意参数
+					execution(* com.sg.service..*.*(..))	// 任意返回值类型，在com.sg.service及子包下的任意类的任意方法的任意参数
+					execution(* *..service.*.*(..))		// service之前可以有任意包
+					execution(* *.service.*.*(..))		// service之前只有一个包
+					
+
+		-> AspectJ实现步骤
+			以SomeService业务接口，SomeServiceImpl业务实现类，MyAopAspect切面类为例。
+			
+			1、创建业务接口
+				public interface SomeService {
+					String doSome01(String name, String type);
+				}
+			2、创建业务实现
+				public String doSome01(String name, String type) {
+					System.out.println("doSome业务功能实现！");
+					return null;
+				}
+			3、创建切面类
+				-> 使用@Aspect注释创建的切面类。
+					@Aspect     // 交给AspectJ框架去识别切面类
+					public class MyAopAspect {}
+				-> 定义切面方法(以前置通知为例)
+					 * 前置通知切面方法规范：
+					 *      -> 访问权限public
+					 *      -> 方法返回值void
+					 *      -> 方法名称自定义
+					 *      -> 方法无参，如果有也只能是JoinPoint类型
+					 *				JoinPoint：是前置通知方法的参数，可以通过参数返回目标方法(被添加通知的目标类的方法)的参数列表，方法签名等
+					 *      -> 必须使用@Before注解声明切入时机与切入点
+					 *          参数：value    指定切入点表达式
+					例：
+						// 注意：这个切入方法只能给String com.sg.s01.SomeServiceImpl.doSome01(String, String)方法添加前置方法
+						@Before(value = "execution(public String com.sg.s01.SomeServiceImpl.doSome01(String, String))")		// 切入点
+						public void myBefore(){
+							System.out.println("切面方法中的前置通知功能实现......");
+						}
+						
+						// 使用JoinPoint返回参数列表，方法签名
+							@Before(value = "execution(public String com.sg.s01.SomeServiceImpl.*(..))")
+							public void myBefore(JoinPoint jp){
+								System.out.println("切面方法中的前置通知功能实现......");
+								System.out.println("目标方法的方法签名：" + jp.getSignature());
+								System.out.println("目标方法的参数列表：" + Arrays.toString(jp.getArgs()));
+								// 目标方法的方法签名：String com.sg.s01.SomeService.doSome01(String,String)
+								// 目标方法的参数列表：[张三, 吃屁]
+							}
+						
+			4、在applicationContext.xml中进行切面绑定
+				-> 创建业务对象
+					<bean id="someServiceImpl" class="com.sg.s01.SomeServiceImpl"></bean>
+				-> 创建切面对象
+					<bean id="myAspect" class="com.sg.s01.MyAopAspect"></bean>
+				-> 将切面方法进行绑定
+					<aop:aspectj-autoproxy></aop:aspectj-autoproxy>
+
+			5、测试
+				-> 创建Spring容器并启动
+					ClassPathXmlApplicationContext cpxac = new ClassPathXmlApplicationContext("s01/applicationContext.xml");
+				-> 取出代理对象(目标对象)
+					// 注意：jdk动态代理必须使用接口类型接收代理对象，cglib可以使用接口的实现类接收代理对象
+					SomeService service = (SomeService) cpxac.getBean("someServiceImpl");		
+					// 此时service对象是一个代理对象，返回：class com.sun.proxy.$Proxy8
+				-> 调用业务方法
+					service.doSome01("张三", "吃屁");
+
+			注意：当想要在业务接口中添加新的业务方法，则需要修改切入点表达式，因为上面的切入点只指doSome01()方法。
+				修改为：@Before(value = "execution(* com.sg.s01.*.*(..))")
+				
+		如何将jdk动态代理修改为子类代理(cglib)?
+			将核心配置文件中的绑定修改为：
+				<aop:aspectj-autoproxy proxy-target-class="true"></aop:aspectj-autoproxy>
+			此时，测试中从容器中取出的对象可以是接口类型或者实现类类型。
+			
+		-> 优化切面添加的步骤
+			将对象的创建改为注解方式。
+				上面的对象创建是通过bean标签实现的，优化为注解创建对象。
+				修改位置：
+					-> 删除核心配置文件中的创建对象步骤。
+					-> 分别在实现类与切面类上使用注解，实现类中使用@Service，切面类中使用@Component
+					-> 配置文件中添加包扫描
+						<context:component-scan base-package="com.sg.s01"></context:component-scan>
+			
+		-> 其他常用通知
+			1、后置通知 @AfterReturning
+					在目标方法后执行。
+				后置通知方法的规范：
+					// 访问权限public
+					// 方法无返回值void
+					// 方法名称自定义
+					// 方法有参数(也可以没有参数)
+						注意：这个后置的切面方法参数就是目标方法的返回值。
+							当目标方法没有返回值，则后置通知的方法形参可以省略。
+							但一般会写有参，有参时可以处理有参也可以处理无参，不知道目标方法返回值类型时，通常采用Object接收。
+						<在切面方法中可以再次加工处理目标方法的返回值。
+						当目标方法的返回值是8种基本数据类型或String类型，则目标方法在使用时不会因为切面方法的处理而改变返回值
+						当目标方法的返回值是引用类型，则目标方法在使用调用是返回值会因为切面方法的处理而发生改变>	
+					// 使用@AfterReturning注解表示为后置通知
+						参数：
+							value：切入点表达式
+							returning：指定目标方法的返回值的名称，注意该名称必须与切面方法的参数名称一致。
+				例：
+					@AfterReturning(value = "execution(* com.sg.s02.*.*(..))", returning = "obj")
+					public void after(String obj){
+						obj = obj + "快乐！";				// String类型，并没有改变目标方法的返回值
+						System.out.println("切面方法中处理后：" + obj);
+						System.out.println("恭喜恭喜！");
+					}
+							
+							
+			
+			2、环绕通知 @Around
+				通过拦截目标方法的方式，在目标方法前后增强功能的实现。它是功能更强大的通知，一般事务使用此通知。
+				<可以轻易地改变目标方法的返回值>
+				
+				环绕通知的规范：
+					// 访问权限public
+					// 切面方法的返回值，此时返回值就是目标方法的返回值
+					// 方法名称自定义
+					// 方法有参数，此参数就是目标方法 <ProceedingJoinPoint pjp> 
+					// 回避异常
+					// 使用@Around注解声明时环绕通知
+						参数：
+							value：切入点表达式
+				注意：
+					1、返回值是目标方法返回值
+					2、环绕方法参数：ProceedingJoinPoint pjp
+					3、环绕通知方法中必须调用目标方法(被拦截了)
+						Object obj = pjp.proceed(pjp.getArgs());
+					4、调用方法时处理异常
+					5、调用业务目标方法时返回值可以进行处理修改，与@AfterReturning不同的是，该通知不需要考虑目标方法返回值类型。
+					
+				例：
+					@Around(value = "execution(* com.sg.s03.*.*(..))")
+					public String myAround(ProceedingJoinPoint pjp) throws Throwable {
+						// 前切功能实现
+						System.out.println("环绕通知的前置切面方法实现...");
+						
+						// 目标方法调用
+						// 注意：目标方法调用
+						Object obj = pjp.proceed(pjp.getArgs());
+						
+						// 后置功能实现
+						System.out.println("环绕通知的后置切面方法实现...");
+						return obj.toString().toUpperCase();
+					}
+			
+			3、最终通知@After
+				无论目标方法是否正常执行，最终通知都会被执行。(相当于try...catch中的finally)
+				
+				最终通知方法规范：
+					// 访问权限public
+					// 方法无返回值void
+					// 方法名称自定义
+					// 方法没有参数，如果有也只能是JoinPoint类型
+					// 使用@After注解声明是最终通知
+						value：切入点表达式
+					
+				例：
+					@After(value = "execution(* com.sg.s04.*.*(..))")
+					public void myAround(JoinPoint jp) {
+						// 最终通知实现
+						System.out.println("资源已关闭！任务结束！");
+					}
+			
+			4、定义切入点别名 @Pointcut
+				场景：
+						如果多个切面通知的切入点都相同，
+					可以使用@Pointcut简化切入点名称。
+					
+				使用@Pointcut注解，创建一个空的切面方法，此方法的方法名就是别名。
+				
+				例：
+					// 切入点别名
+					@Pointcut(value = "execution(* com.sg.s05.*.*(..))")
+					public void myPointcut(){
+					}
+			
+			
+		-> 常见通知的执行顺序
+			环绕前置通知执行......
+			前置通知执行......
+			doSome()业务方法执行成功....
+			环绕后置通知执行......
+			最终通知执行......
+			后置通知执行......
+	
+
+-> Spring集成MyBatis(SM整合)
+	将mybatis与spring进行整合，主要解决的问题就是将SqlSessionFactory对象交给Spring来管理。
+	
+	整合步骤：
+		-> 新建Maven项目
+		-> 修改pom文件，添加依赖
+		-> 在idea中添加MyBatis响应模板(SqlMapConfig.xml与XXXMapper.xml)
+			步骤：
+				idea中：左上角settings --> Editor(编辑器) --> File and Code Templates(文件和代码模板) --> 点击'+'添加
+				添加SqlMapConfig.xml模板与XXXMapper.xml模板。
+				
+		-> 在resources添加MyBatis核心配置文件SqlMapConfig.xml与jdbc.properties配置文件
+			注意：SqlMapConfig.xml中只保留sql日志的配置。
+		-> 添加三层架构目录结构
+		-> 添加Spring框架下的applicationContext_mapper.xml配置文件与applicationContext_service.xml配置文件
+			在applicationContext_mapper.xml
+			配置：
+				
+				<!--读取属性文件jdbc.properties-->
+				<context:property-placeholder location="jdbc.properties"></context:property-placeholder>
+				<!--创建数据源-->
+				<bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource">
+					<property name="driverClassName" value="${driver}"></property>
+					<property name="url" value="${url}"></property>
+					<property name="username" value="${user}"></property>
+					<property name="password" value="${password}"></property>
+				</bean>
+
+				<!--配置SqlSessionFactoryBean类-->
+				<bean class="org.mybatis.spring.SqlSessionFactoryBean">
+					<!--配置数据源(引用上面的数据源)-->
+					<property name="dataSource" ref="dataSource"></property>
+					<!--配置MyBatis的核心配置文件-->
+					<property name="configLocation" value="SqlMapConfig.xml"></property>
+					<!--注册实体类的别名-->
+					<property name="typeAliasesPackage" value="com.sg.pojo"></property>
+				</bean>
+
+				<!--注册mapper.xml文件-->
+				<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+					<property name="basePackage" value="com.sg.mapper"></property>
+				</bean>
+				
+			在applicationContext_service.xml
+			配置：
+				<!--导入applicationContext_Mapper.xml-->
+				<import resource="applicationContext_Mapper.xml"></import>
+				<!--基于注解获取对象，添加包扫描-->
+				<context:component-scan base-package="com.sg.service.impl"></context:component-scan>
+				<!--事务处理-->
+
+		-> 在pojo包下添加实体类
+		-> 在mapper包下添加XxxMapper.xml配置文件与XxxMapper接口
+		-> 在service包下添加XxxService接口与XxxServiceImpl实现类
+		-> 添加测试类测试功能
+		
+		 * 注意：
+		 *  实际在MyBatis下并不会直接实现数据访问层接口，而是直接通过创建SqlSessionFactory工厂获取SqlSession对象，然后通过动态代理后实现接口的对象来操作的。
+		 *  而Spring接管对象的创建后，通过配置可以直接用@Autowired引用类型注入，从整个Bean工厂中搜索同源类型的对象进行注入。
+
+
+
+
+
+
+-> 事务
+	数据库管理系统执行过程中的一个逻辑单位，由一个有限的数据库操作序列构成。
+	
+	-> 事务的四个特性
+		// 原子性（Atomicity）：事务要么全部完成，要么全部取消。如果事务崩溃，数据库的状态要回滚到事务之前
+		// 一致性（Consistency）：一致性是指在事务开始之前和事务结束以后，数据库的完整性约束没有被破坏。这是说数据库事务不能破坏关
+								 系数据的完整性以及业务逻辑上的一致性。
+		// 隔离性（Isolation）：指并发的事务是相互隔离的。即一个事务内部的操作及正在操作的数据必须封锁起来，不被企图进行修改的事务看到。
+		// 持久性（Durability）：持久性是指在事务完成以后，该事务所对数据库所作的更改便持久的保存在数据库之中，并不会被回滚。 
+								 即使出现了任何事故比如断电等，事务一旦提交，则持久化保存在数据库中。
+								 
+		mysql默认的事务处理级别是'REPEATABLE-READ',也就是可重复读
+		oracle数据库支持READ COMMITTED 和 SERIALIZABLE这两种事务隔离级别。默认系统事务隔离级别是READ COMMITTED,也就是读已提交
+
+	-> 不隔离事务会出现哪些问题？
+		1、脏写
+				事务A和事务B同时在更新一条数据，事务A先把它更新为A值，事务B紧接着就把它更新为B值。
+				事务B去修改了事务A修改过的值，但是此时事务A还没提交，所以事务A随时会回滚，导致事务B修改的值也没了。
+		2、脏读
+				A事务读取B事务尚未提交的数据并在此基础上操作，而B事务执行回滚，那么A读取到的数据就是脏数据。
+			解决方法：
+				如果在第一个事务提交前，任何其他事务不可读取其修改过的值，则可以避免该问题。
+			
+			<无论是脏写还是脏读，都是因为一个事务去更新或者查询了另外一个还没提交的事务更新过的数据。因为另外一个事务还没提交，
+			所以它随时可能会回滚，那么必然导致你更新的数据就没了，或者你之前查询到的数据就没了，这就是脏写和脏读>
+				
+		3、不可重复读
+				一个事务对同一行数据重复读取两次，但是却得到了不同的结果。事务A读取某一数据后，事务B对其做了修改，当事务A再次读该数据时得
+			到与前一次不同的值。 
+			解决方法：
+				如果只有在修改事务完全提交之后才可以读取数据，则可以避免该问题。
+		4、幻读
+			指一个事务执行两次查询，但第二次查询的结果包含了第一次查询中未出现的数据。
+	
+	
+	-> 四种隔离级别
+		-> 读未提交(READ UNCOMMITTED)
+				在该隔离级别，所有事务都可以看到其他未提交事务的执行结果。本隔离级别很少用于实际应用，因为它的性能也不比其他级别好多少。
+			读取未提交的数据，也被称之为脏读。
+				MySQL 事务隔离其实是依靠锁来实现的，加锁自然会带来性能的损失。而读未提交隔离级别是不加锁的，所以它的性能是最好的，没有加
+			锁、解锁带来的性能开销。
+				依然可能发生：<脏读，不可重复读，幻读>
+		
+		-> 读已提交(READ COMMITED)
+				这是大多数数据库系统的默认隔离级别（但不是MySQL默认的）。它满足了隔离的简单定义：一个事务只能看见已经提交事务所做的改变。
+			这种隔离级别也支持所谓的不可重复读（NonrepeatableRead），因为同一事务的其他实例在该实例处理其间可能会有新的commit，所以同一
+			select可能返回不同结果。
+				依然可能发生：<不可重复读，幻读>
+
+		-> 可重复读(REPEATABLE READ)
+				这是MySQL的默认事务隔离级别，同一事务的多个实例在并发读取数据时，会看到同样的数据。不过理论上，这会导致另一个棘手的问题：
+			幻读（Phantom Read）。简单的说，幻读指当用户读取某一范围的数据行时，另一个事务又在该范围内插入了新行，当用户再读取该范围的数
+			据行时，会发现有新的“幻影” 行。
+				依然可能发生：<幻读>
+
+		-> 可串行化(SERIALIZABLE)
+				这是最高的隔离级别，它通过强制事务排序，使之不可能相互冲突，从而解决幻读问题。简言之，它是在每个读的数据行上加上共享锁。
+			在这个级别，可能导致大量的超时现象和锁竞争。
+
+
+-> Spring事务的传播特性
+	多个事务之间的合并，互斥等都可以设置事务的传播特性来解决。
+	事务传播行为（propagation behavior）指的就是当一个事务方法被另一个事务方法调用时，这个事务方法应该如何进行。
+	7种事务传播行为：
+		propagation_requierd(Spring默认)：
+			如果当前没有事务，就新建一个事务，如果已存在一个事务中，加入到这个事务中，这是最常见的选择。(增删改必用)
+		propagation_required_new：
+			新建事务，如果当前存在事务，把当前事务挂起。
+		propagation_supports：
+			支持当前事务，如果没有当前事务，就以非事务方法执行。
+		propagation_never：
+			表示当前方法不应该运行在事务的上下文中。如果当前正有一个事务在运行，则会抛出异常(直接运行报错)。
+		propagation_not_supported：
+			以非事务方式执行操作，如果当前存在事务，就把当前事务挂起。
+		propagation_mandatory：
+			使用当前事务，如果没有当前事务，就抛出异常。
+		propagation_nested：
+			如果当前存在事务，则在嵌套事务内执行。如果当前没有事务，则执行与propagation_required类似的操作。
+
+		
+-> 声明式事务配置
+
+
+
+-> 注解式事务配置
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	Spring开发步骤
+		-> 导入坐标 
+		-> 创建bean
+		-> 创建配置文件(applicationContext.xml)
+		-> 在配置文件中进行配置
+		-> 创建ApplicationContext对象getBean
+		
+	Bean标签的基本属性配置
+		-> scope:指对象的作用范围
+			取值：
+				-> singleton  默认值，单例的(意味着在容器中只有一个对象)
+				-> prototype  多例的(意味着容器内有多个对象)
+				-> request  web项目中，Spring创建一个Bean的对象，将对象存入到request域中
+				-> session  web项目中，Spring创建一个Bean的对象，将对象存入到session域中
+				-> global session  web项目中，应用在Portlet环境，如果没有Portlet环境那么globalSession相当于session
+				
+				
+				
