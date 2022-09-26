@@ -217,7 +217,7 @@ Linux
 			
 			-> 三种模式切换
 				命令行模式 ---> 正常模式 ---> 编辑模式 ---> 正常模式 ---> 命令模式 ---> 命令行下
-			  vim Hello.java       i            esc            :							wq
+							vim Hello.java      i            esc           :							wq
 				
 				注意：在esc后，需要输入':'或者'/'进入命令行(此时没有保存退出)，只有输入wq才可以退出(wq只有保存退出的意思，并不是切换到命令行下)
 				
@@ -374,6 +374,11 @@ Linux
 				page down			向下翻动
 				page up				向上翻动
 				q							离开less这个程序
+	
+	// more [选项] 文件名
+		与cat命令类似，more是按页显示文本文件的内容，空白键向下翻动，b往回翻动。
+		例：more -5 hello.txt		// 每页显示5行
+				ls | more -5		// 显示当前目录下的所有文件和目录名称，并进行分页显示
 	
 	// echo [选项] [输出内容]
 		输出内容到控制台。
@@ -544,7 +549,7 @@ Linux
 		1、系统工作：有些任务必须周而复始的工作执行。如病毒扫描
 		2、个别用户工作：个别用户可能希望执行某些程序。比如对mysql数据库的备份。
 		
-	单个执行一个可执行文件：./my.sh
+	单个执行一个批处理可执行文件：./my.sh
 		
 		1、反复执行任务
 			crond命令：
@@ -815,13 +820,16 @@ Linux
 			端口，比如，80、22、8080等。
 			-> firewall
 				打开端口：
-					firewall -cmd --permanent --add-port=端口号/协议
+					firewall-cmd --permanent --add-port=端口号/协议
+					例：firewall-cmd --permanent --add-port=8080/tcp
 				关闭端口：
-					firewall -cmd --permanent --remove-port=端口号/协议
+					firewall-cmd --permanent --remove-port=端口号/协议
 				重新载入：
-					firewall -cmd --reload
+					firewall-cmd --reload
 				查询端口是否开放：
-					firewall -cmd --query-port=端口/协议
+					firewall-cmd --query-port=端口/协议
+				查看已经开放的端口：
+					firewall-cmd --zone=public --list-ports
 		
 		动态监控进程：
 			类似于windows下cpu等服务运行的状态信息是实时更新的。而linux也有这种动态监控功能。
