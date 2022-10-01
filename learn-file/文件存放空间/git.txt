@@ -219,28 +219,35 @@ git
 		<与项目实际功能无关的文件>
 		作用：在java项目中会存在一些idea配置文件或其他没有任何作用的文件，此时不需要将这些文件推送到git中，所以要设置git忽略文件(iml/.idea文件)
 		-> 如何忽略
-			创建一个忽略规则文件xxx.ignore(建议：git.ignore)
-			位置：<原则上哪里都可以>为了方便让.../.gitconfig文件引用，建议放在用户家目录下(C:/用户/dell/....)。
-			git.ignore文件格式：
-				*.class				// 所有的.calss文件忽略掉
-				*.log					// 所有的log日志忽略
-				*.jar
-				*.war			
-		
-		引用git.ignore：
-			在.gitconfig文件(dell目录内)中添加：
-							[core]
-								excludesfile = C:\Users\dell\git.ignore				#注意斜线
-								
+			方法一：<一般不用>
+				创建一个忽略规则文件xxx.ignore(建议：git.ignore)
+				位置：<原则上哪里都可以>为了方便让.../.gitconfig文件引用，建议放在用户家目录下(C:/用户/dell/....)。
+				git.ignore文件格式：
+					*.class				// 所有的.calss文件忽略掉
+					*.log					// 所有的log日志忽略
+					*.jar
+					*.war			
+				# 注释
+				
+				引用git.ignore：
+					在.gitconfig文件(dell目录内)中添加：
+									[core]
+										excludesfile = C:\Users\dell\git.ignore				#注意斜线
+			
+			方法二：
+				// 在idea的plugins插件中心搜索'.ignore'，下载插件，重启idea
+				// 在项目目录上右击新建'New'(例：项目Project01项目目录下) --> 选择'ignore file' --> 选择'.gitignore file'
+				   --> 在ignore file generator窗体中，勾选'Example user template'(示例用户模板) --> generate
+			
 	2、idea定位git程序
 		Setting ---> Version Control ---> git
-			-> path to git executable：git安装目录<注意：定位到dit.exe程序>		tset：查看版本信息
+			-> path to git executable：git安装目录<注意：定位到git.exe程序>		tset：查看版本信息
 	
 	3、git管理idea项目
 		<管理到项目时项目根目录下存在.git目录>(当然你可以用命令行进行管理)
 		
 		如何在idea创建本地库(init)?
-			点击工具栏 VCS ---> import into version cotrol ---> create git repository(默认选中的就是项目的根目录) ---> ok
+			点击工具栏 VCS ---> import into version cotrol(导入到控制版本) ---> create git repository(默认选中的就是项目的根目录) ---> ok
 		此时可以看到在项目根目录中存在.git文件。<idea中pom文件变红了，相当于使用命令行时没有将文件添加到暂存区(当前目录在工作区)>
 		
 		如何在idea中将文件添加到暂存区？
@@ -281,7 +288,7 @@ git
 		-> 合并分支
 			<正常合并：只修改一个分支的信息>
 				将其他分支合并到master分支。
-					按照创建的步骤，当弹出 git branches框后，可以看到local branches中所有分支信息，直接点击被合并分支的'merge into current'即可合并。
+					按照创建的步骤，当弹出 git branches框后，可以看到local branches中所有分支信息，直接点击"被合并分支"的'merge into current'即可合并。
 				合并成功后，在master分支下可以看到代码已经合并。
 			
 			<冲突合并>
@@ -305,7 +312,7 @@ git
 		-> idea将本地库项目分享到github
 			注意：正常情况下需要先创建远程库，然后才能推送项目。但是，idea有github插件，不需要创建远程库。
 			步骤：
-				VCS --> import into version cotrol --> share project on github --> 弹出设置框
+				VCS --> import into version cotrol(导入到版本控制) --> share project on github --> 弹出设置框
 				--> 设置远程库名及公共与私有<项目名>、别名<库名>、默认信息不需要填 --> 成功
 		
 		-> 推送(push)、拉取(pull)、克隆(clone)

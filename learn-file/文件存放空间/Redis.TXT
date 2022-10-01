@@ -111,17 +111,44 @@
 			
 	linux上：
 		下载安装包：在官网下载。
+		https://redis.io/download/#redis-downloads			<redis-6.2.7.tar.gz>
 		
+		安装：
+			// 将tar.gz压缩包传输到linux系统中，存放位置：/opt/redis
+			// 解压(在压缩包所在目录下进行解压)：tar -zxvf redis-6.2.7.tar.gz
+			// 进入解压的文件目录中：cd redis-6.2.7/
+			// 在redis-6.2.7目录中执行'make'命令。(此时只是编译完成，并没有安装)
+				<注意：必须有gcc才可以make成功>
+			// 执行'make install'命令，默认在'/usr/local/bin/'目录下安装。
+				介绍几个文件：
+					redis-benchmark：性能测试工具。<可执行文件>
+					redis-check-aof：修复有问题的AOF文件。
+					redis-check-rdb：修复有问题的dump.rdb文件
+					redis-sentinel：Redis集群使用
+					redis-server：Redis服务器启动文件。<可执行文件>
+					redis-cli：客户端操作入口。<可执行文件>
 		
-		
-		
-		运行：
-			cd /usr/local/src/redis-6.2.6
-			redis-server redis.conf					// 启动
-			// 停止服务
-			redis-cli -u 123456 shutdown			// 由于配置了密码，所以要通过密码指定密码进行停止
+		前台启动：
+			前台启动时命令行窗口不能关闭。
+			直接执行'redis-server'命令。<ctrl+c可以停止>
 			
-			// 开机自启redis服务
+		后台服务启动****************：
+			// 备份redis.conf。<在解压文件位置'/opt/redis/redis-6.2.7/'中的redis.conf>
+				命令：cp redis.conf /etc/
+			// 进入/etc/目录，查看是否存在redis.conf文件。<ll | grep redis.conf>
+			// 修改etc内的redis.conf文件。
+				将'daemonize no' 改成'daemonize yes'。
+			// 进入'/usr/local/bin/'目录内，启动redis。
+				执行命令：redis-server /etc/redis.conf			<查看是否启动：ps -ef | grep redis>
+		
+			-> 启动运行
+				cd /usr/local/src/redis-6.2.6
+				redis-server redis.conf					// 启动
+			-> 停止服务
+				redis-cli -u 123456 shutdown			// 由于配置了密码，所以要通过密码指定密码进行停止
+				kill PID		// 杀死进程
+			
+			-> 开机自启redis服务
 				-> 创建一个系统服务文件：vim /etc/systemd/system/redis.service
 				-> 写入文件内容：
 						[Unit]
@@ -141,8 +168,9 @@
 				-> 停止redis：systemctl stop redis
 				-> 重启redis：systemctl restart redis
 				-> 开机自启：systemctl enable redis
-				
--> redis客户端
+		
+		
+-> redis客户端	<使用redis>
 	// 命令行客户端
 		使用命令行客户端：
 			执行命令：redis-cli [option] [commonds]
@@ -170,7 +198,7 @@
 		直接win下解压，安装即可。
 		rdm.exe文件就是运行文件。
 	
-	// 编程客户端				
+	// 编程客户端
 		
 	
 -> 基础知识
@@ -181,7 +209,7 @@
 				-> dbsize							<查看数据库使用情况>
 				-> set name qlj				<向数据库中存储一个键值对(name:qlj)>
 				-> get name						<根据键取出对应的值>
-				-> key *							<查看所有的key。(必须在存储的数据库中查找)>
+				-> keys *							<查看所有的key。(必须在存储的数据库中查找)>
 				-> flushdb						<清空当前数据库>
 				-> flushall						<清空全部数据库内容>
 				-> exists name				<判断集合中是否包含'name'这个key是否存在，存在返回1>
@@ -239,7 +267,7 @@
 					List：[A -> B -> C -> C]
 					Set：{A,B,C}
 					SortedSet(Zset)：{A:1,B:2,C:3}
-				-- 特殊类型
+				-- 特殊类型(redis6新类型)
 					GEO：{A:{120.3,30.5}}
 					BitMap：0101101101
 					HyperLog：0101101101
@@ -347,7 +375,7 @@
 			Redis中的List类型与LinkedList类似，可以看做是一个双向链表(实际更复杂quicklist)，既可以正向检索也可以反向检索。
 			特征：
 				有序：指存取顺序，并不是数据排序<索引号从0开始>
-				元素可重复
+				元素可重复<指value中的元素>
 				插入和删除快
 				查询速度一般
 			注意：List类型对两端的操作性能很高，通过索引下标的操作中间的元素节点性能会较差。
@@ -454,6 +482,18 @@
 				// zrangebyscore key min max：按照score排序后，获取指定排名范围内的元素
 				// zdiff、zinter、zunion：求差集、交集、并集
 
+		-> BitMap
+			BitMap本身不是一种数据类型，实际上它就是字符串(key-value)，但是它可以对字符串的位进行操作。
+				BitMap，即位图，使用每个位表示某种状态，适合处理整型的海量数据。本质上是哈希表的一种应用实现。给定一个int整型数据，将该int整数
+			映射到对应的位上，并将该位由0改为1。
+		
+		
+		
+		
+		
+		
+		
+			
 
 -> redis配置文件redis.conf介绍
 	配置文件中只支持bytes，不支持bit，大小写不敏感。
