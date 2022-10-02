@@ -138,15 +138,16 @@
 			// 进入/etc/目录，查看是否存在redis.conf文件。<ll | grep redis.conf>
 			// 修改etc内的redis.conf文件。
 				将'daemonize no' 改成'daemonize yes'。
-			// 进入'/usr/local/bin/'目录内，启动redis。
+
+		-> 启动运行
+			进入'/usr/local/bin/'目录内，启动redis。
 				执行命令：redis-server /etc/redis.conf			<查看是否启动：ps -ef | grep redis>
-		
-			-> 启动运行
-				cd /usr/local/src/redis-6.2.6
-				redis-server redis.conf					// 启动
-			-> 停止服务
-				redis-cli -u 123456 shutdown			// 由于配置了密码，所以要通过密码指定密码进行停止
-				kill PID		// 杀死进程
+				
+			cd /usr/local/src/redis-6.2.6
+			redis-server redis.conf					// 启动
+		-> 停止服务
+			redis-cli -u 123456 shutdown			// 由于配置了密码，所以要通过密码指定密码进行停止
+			kill PID		// 杀死进程
 			
 			-> 开机自启redis服务
 				-> 创建一个系统服务文件：vim /etc/systemd/system/redis.service
@@ -478,23 +479,102 @@
 				// zcard key：获取sortedset中的元素个数
 				// zcount key min max：统计score值在给定范围内所有元素的个数
 				// zincrby key increment element：让sortedset中的指定元素自增、步长为指定的increment值
-				// zrange key min max：按照score排序后，获取指定排名范围内的元素		<zrevrange降序>
+				// **** zrange key min max：按照score排序后，获取指定排名范围内的元素		<zrevrange降序>		<查看全部元素：ZRANGE student 0 -1>
 				// zrangebyscore key min max：按照score排序后，获取指定排名范围内的元素
 				// zdiff、zinter、zunion：求差集、交集、并集
 
 		-> BitMap
-			BitMap本身不是一种数据类型，实际上它就是字符串(key-value)，但是它可以对字符串的位进行操作。
-				BitMap，即位图，使用每个位表示某种状态，适合处理整型的海量数据。本质上是哈希表的一种应用实现。给定一个int整型数据，将该int整数
-			映射到对应的位上，并将该位由0改为1。
-		
-		
-		
-		
-		
-		
-		
+			使用场景：
+					在平时开发过程中，经常会有一些bool类型数据需要存取。比如记录用户一年内签到的次数，签了是1，没签是0。如果使用key-value
+				来存储，那么每个用户都要记录365次，当用户成百上亿时，需要的存储空间将非常巨大。为了解决这个问题，Redis提供了位图结构。
 			
+			位图（bitmap）
+				bitmap同样属于string数据类型。Redis中一个字符串类型的value最多能存储512MB的内容，每个字符串由多个字节组成，每个字节又由8个Bit位组成。
+				位图结构正是使用“位”来实现存储的，它通过将比特位设置为0或1来达到数据存取的目的，这大大增加了value存储数量。
+				bitmap：存储上限为512*1024*1024*8(bit)。
+				例：一个字符串"1" 占用一个字节，如果使用1表示true，则这个'boolean'(实际没有Boolean)占用了1个字节，即8个bit位。但如果直接使用bit存储
+				    1或者0，则可以存储更多的信息。
+				故：bitmap本质上可以看做是一个bit数组。数组的下标在bitmap中被称作偏移量(offset)。
+				结构：
+					key offset bool				
+						// offset bool就是bitmap结构。
+							offset:实际上就是数组下标，必须是int类型
+							bool:只能存储0和1，表示状态。
+				
+			实例：
+				1、判断用户登录状态
+					存储结构：login:status : 10061457 1			// 表示10061457用户登录的状态是已登录
+			
+				2、用户本月签到情况
+					存储结构：user:sign:10061457:202210 : 1 0 2 1 3 0		// 表示10061457用户在10月份签到情况，1号未签到，2号签到，3号未签到
+						注意：此处只代表存储结构。第一次初始化bitmap时，如果偏移量很大，初始化过程较慢。
+				
+			常用命令：
+				// setbit key offset value：设置bitmap中某个偏移量的值。(key在初始状态下所有的位都为0)
+					例：setbit login:status 10061456 1
+				// getbit key offset：获取key在指定位索引位置上对应的二进制值,要么是0要么是1
+					例：getbit login:status 10061456
+				// bitcount key [start end]：统计key所储存的字符串值中，指定字节区间[start,end]被设置为1的bit位的数量。<可以-1>
+					注意：redis的setbit设置或清除的是bit位置，而bitcount计算的是byte位置，1byte=8bit。
+						<一个字符串值就是8个bit位，所以对于bit数组来讲，就是8个bit为一组进行统计。当然直接使用get命令查时相当于ASCII值对于字符。>
+					例：
+						存：SETBIT test 0 1		SETBIT test 3 1		SETBIT test 7 1		SETBIT test 9 1		SETBIT test 15 1
+							相当于：10010001 10000001
+						统计：bitcount login:status 0 0		<返回：3>		bitcount login:status 0 1	<返回：5>
+				// BITOP operation destkey key [key ...]：在字符串之间执行按位运算。
+					operation：二进制位运算类型。and(与)、or(或)、xor(异或)、not(非)。<与、或、异或可以允许多个数量的位图进行运算，not只允许一个位图>
+					destkey：用户存储运算结果的key名称。
+					例：
+						创建两个bitmap类型的数据：test1 : 10001010	test2 : 11110111
+						与：BITOP and test3 test1 test2		运算结果存储在test3中<会自动创建test3并存储位图>。
+						非：BITOP not test3 test3			运算后将test3原有位图覆盖
+						
+			bitmap缺点：
+				1、数据碰撞：比如将字符串映射到bitmap的时候会出现碰撞问题。考虑使用bloom fiter来解决，使用多个hash函数进行转换减少冲突的概率。
+				2、数据稀疏：比如在bitmap结构中只存入一个'2^32-1'值，此时就需要一个512M的空间进行存储，因为bitmap结构是通过bit的顺序来确定是否
+							 存储该值(bit数组的2^32-1位上为1)。这个时候只想存一个数据，但却占用了512M空间。此时可以引入'Roaring BitMap'结构。
+					Roaring BitMap：压缩位图。(简单来讲：将大块的bitmap分成各个小块，其中每个小块在需要存储数据的时候才会存在)		 
+				
+				注意：redis中，如果存入数据offset比较大，呈现稀疏数据时，会自己进行压缩处理。
+				
+		
+		-> HyperLogLog
+			<推荐文章：https://mp.weixin.qq.com/s?src=11&timestamp=1664708026&ver=4080&signature=TUqG-z9xYEp-hcYgkiHTpsv1qIIucw*sh5dh-LskP8sUdeNZqEScT6L40SpnS9R-xKAwE-8BBvT5RfG7IUetxBNAblakjq5HdLUWoTtd677EQXIL2y5CVKi4tNpruO9H&new=1
+			>
+			
+			应用场景：
+					统计某个页面的uv。和pv不同，在统计uv的时候需要根据用户id进行去重，因此就很难用一个简单的累加计数器来累加pv。当用户量达到千万
+				甚至更高级别的时候，去重所需要的额外存储空间将是巨大的。而hyperloglog数据结构正是用来解决这类问题的，它用仅仅12kb的字节，就能统计
+				2^64数量级别的去重数据统计。当然这种统计是一种估计量，当数量足够大的时候，误差在1%左右。因此如果我们要求的统计结果不需要特别精确，
+				那么就可以使用这种数据结构节省大量存储空间。
+				<pv与uv解释>
+					pv，访问次数就相当于一个展览会的访问人次，某个参观者出入展馆10次的话，这10次都被记入访问次数中，相当于网络中的PV值。
+					uv：独立访客数则相当于带身份证参观展览会的访问人数，每一个出示身份证参观展览的人，无论出入几次，都只计作一次独立访问。
+			
+			原理及作用：
+			
+				hyperloglog适用于大数据量的去重统计。
 
+				极大似然估计：当可观察的结果足够多时，我们可以“大概率”地推测出条件的状态。
+
+				伯努利实验：扔硬币
+
+				伯努利实验的极大似然估计：通过观察“最小概率”出现的实验结果，推测出实验进行的“大概率”次数
+
+				redis通过hash算法，模拟伯努利实验，从而“大概率”推测出进行hash的次数。
+
+				为了减少误差，redis进行了分桶和调和平均
+
+				为了优化存储，redis引入了稀疏结构
+		
+
+
+
+
+
+
+
+		
 -> redis配置文件redis.conf介绍
 	配置文件中只支持bytes，不支持bit，大小写不敏感。
 	includes部分。指配置文件可以包含其他文件的内容，使用include关键字实现。
