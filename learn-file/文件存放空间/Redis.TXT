@@ -143,8 +143,8 @@
 			进入'/usr/local/bin/'目录内，启动redis。
 				执行命令：redis-server /etc/redis.conf			<查看是否启动：ps -ef | grep redis>
 				
-			cd /usr/local/src/redis-6.2.6
-			redis-server redis.conf					// 启动
+			cd /usr/local/bin/
+			redis-server /etc/redis.conf					// 启动
 		-> 停止服务
 			redis-cli -u 123456 shutdown			// 由于配置了密码，所以要通过密码指定密码进行停止
 			kill PID		// 杀死进程
@@ -195,11 +195,36 @@
 		
 	// 图形化桌面客户端
 		下载地址：https://github.com/lework/RedisDesktopManager-Windows/releases
-			下载rdm-2021.9.zip
+			下载 resp-2022.4.2.zip 
 		直接win下解压，安装即可。
 		rdm.exe文件就是运行文件。
 	
 	// 编程客户端
+	
+
+-> redis配置文件redis.conf介绍
+	配置文件中只支持bytes，不支持bit，大小写不敏感。
+	includes部分。指配置文件可以包含其他文件的内容，使用include关键字实现。
+
+	-> bind=127.0.0.1		// 只能接受本机的访问请求(想要远程连接要将其注释掉，且将protected-mode 改成no)
+		不写的情况下，无限制接收任何ip地址的访问。<生产环境下要写服务器的地址，服务器需要远程访问，所以需要将其注释掉。>
+		注意：
+			如果开启了protected-mode(保护模式)，那么在没有设定bind ip且没有设密码的情况下，redis只允许接收本机的响应。
+	-> port 6379			// 端口号	
+	-> tcp-backlog 511			// 高并发环境下需要一个高backlog值来避免慢客户端连接问题。
+	-> timeout 0				// 使用redis时，很长时间不使用时就会超时，0表示永不超时(秒)。
+	-> daemonize yes			// redis是否为后台进程，设置为yes
+	-> logfile ""					// 设置redis日志输出文件，默认为空
+	-> databases 16				// redis默认有16个库
+	-> SECURITY部分。redis默认没有设置密码<打开'requirepass foobared'的注释>
+		// 或者使用命令进行设置redis密码
+			config get requirepass
+			config set requirepass "123456"
+			auth 123456
+	-> limits部分
+		maxclients			// 设置redis同时可以连接的客户端数量，默认10000个
+		maxmemory				// 最大内存容量。<建议必须设置，否则内存满了后服务器就会宕机，redis移除一部分数据>
+
 		
 	
 -> 基础知识
@@ -353,19 +378,19 @@
 				当value中的field-value较少时，使用ziplist压缩列表，当field-value较多时，则采用hashtable哈希表结构。
 			
 			-> 常用Hash命令
-				// hset key field value：添加或修改hash类型key的field的值
+				// hset key field value：将哈希表key中的字段field的值修改/添加为value 
 					例：hset shop:user:1 id 1		|		hset shop:user:1 name qlj		|		hset shop:user:1 age 23
-				// hget key field：获取一个hash类型key的field
+				// hget key field：获取存储在哈希表中指定字段的值。
 					例：hset shop:user:1 name
-				// hmset：批量添加多个hash类型key的field
+				// hmset：批量将多个field-value(域-值)对设置到哈希表key中。
 					例：hmset shop:user:2 id 2 name zmq age 22
-				// hmget：批量获取多个hash类型key的field
+				// hmget：批量获取所有给定字段的值
 					例：hmget shop:user:2 id name age
-				// hgetall：获取一个hash类型的key中的所有的field和value
+				// hgetall：获取在哈希表中指定key的所有字段和值
 					例：hgetall shop:user:2			<类似java的entrySet()方法>
-				// hkeys：获取一个hash类型的key中的所有的field
+				// hkeys：获取所有哈希表中的字段
 					例：hkeys shop:user:2
-				// hvals：获取一个hash类型的key中所有的value
+				// hvals：获取哈希表中所有value值
 					例：hvals shop:user:2
 				// hincrby：让一个hash类型key的字段值自增并指定步长
 					例：hincrby shop:user:2 age 2				<年龄字段的value值增加了2>
@@ -540,6 +565,7 @@
 		
 		-> HyperLogLog
 			<推荐文章：https://mp.weixin.qq.com/s?src=11&timestamp=1664708026&ver=4080&signature=TUqG-z9xYEp-hcYgkiHTpsv1qIIucw*sh5dh-LskP8sUdeNZqEScT6L40SpnS9R-xKAwE-8BBvT5RfG7IUetxBNAblakjq5HdLUWoTtd677EQXIL2y5CVKi4tNpruO9H&new=1
+			https://www.yuque.com/abser/aboutme/nfx0a4
 			>
 			
 			应用场景：
@@ -550,6 +576,8 @@
 				<pv与uv解释>
 					pv，访问次数就相当于一个展览会的访问人次，某个参观者出入展馆10次的话，这10次都被记入访问次数中，相当于网络中的PV值。
 					uv：独立访客数则相当于带身份证参观展览会的访问人数，每一个出示身份证参观展览的人，无论出入几次，都只计作一次独立访问。
+			
+			基数：通常用来统计一个集合中不重复的元素个数，例如统计某个网站的UV，或者用户搜索网站的关键词数量。
 			
 			原理及作用：
 			
@@ -567,36 +595,64 @@
 
 				为了优化存储，redis引入了稀疏结构
 		
+		-> GEO
+			Geohash编码原理文章参考：
+				https://www.cnblogs.com/LBSer/p/3310455.html | https://zhuanlan.zhihu.com/p/405941061 | https://halfrost.com/go_spatial_search/
 
-
-
-
-
-
-
+			Redis GEO并不是一种新的数据结构，而是基于SortedSet实现的。
+			GEO原理：
+				通过GeoHash编码，将元素对应的经纬度进行编码，然后将该元素id作为key，编码值作为score值存入SortedSet中，最后通过SortedSet的
+				范围查询就可以完成我们的需求。
+				
+			GeoHash编码原理：
+				以北京经纬度'经度=116.41667，维度=39.91667'为例。
+				1、地球经度区间[-180,180]，将区间进行二分[-180,0)[0,180]，经度在右半区间时，记为1。经度左半区间时，记为0。(116.4记为1)；
+				2、接着将[0,180]进行二分，判断在左半区间还是右半区间，以此类推。(迭代二分的越多，精度越高，redis二分了26次)；
+				3、按照经度的方法，将维度也进行二分。(也进行26次二分)；
+				4、经纬度二进制码进行组码。偶数位放经度，奇数位放纬度，形成52位二进制码。
+				5、使用0-9、b-z（去掉a, i, l, o）这32个字母进行base32编码。首先将二进制转换为十进制，然后进行编码。(解码时反推即可)
+				
 		
--> redis配置文件redis.conf介绍
-	配置文件中只支持bytes，不支持bit，大小写不敏感。
-	includes部分。指配置文件可以包含其他文件的内容，使用include关键字实现。
-
-	-> bind=127.0.0.1		// 只能接受本机的访问请求(想要远程连接要将其注释掉，且将protected-mode 改成no)
-		不写的情况下，无限制接收任何ip地址的访问。<生产环境下要写服务器的地址，服务器需要远程访问，所以需要将其注释掉。>
-		注意：
-			如果开启了protected-mode(保护模式)，那么在没有设定bind ip且没有设密码的情况下，redis只允许接收本机的响应。
-	-> port 6379			// 端口号	
-	-> tcp-backlog 511			// 高并发环境下需要一个高backlog值来避免慢客户端连接问题。
-	-> timeout 0				// 使用redis时，很长时间不使用时就会超时，0表示永不超时(秒)。
-	-> daemonize yes			// redis是否为后台进程，设置为yes
-	-> logfile ""					// 设置redis日志输出文件，默认为空
-	-> databases 16				// redis默认有16个库
-	-> SECURITY部分。redis默认没有设置密码<打开'requirepass foobared'的注释>
-		// 或者使用命令进行设置redis密码
-			config get requirepass
-			config set requirepass "123456"
-			auth 123456
-	-> limits部分
-		maxclients			// 设置redis同时可以连接的客户端数量，默认10000个
-		maxmemory				// 最大内存容量。<建议必须设置，否则内存满了后服务器就会宕机，redis移除一部分数据>
+			常用命令：
+				// GEOADD key [NX|XX] [CH] longitude latitude member [longitude latitude member ...]
+					将指定的空间元素(经度、纬度、元素名)添加到key对应的SortedSet中，GeoHash编码会将经纬度转化为52位比特值。
+					参数：
+						XX: 只更新已存在的元素，不添加新元素
+						NX: 只添加新元素，不更新已存在元素
+						CH: 改变命令返回值的逻辑（CH是change的缩写）。命令默认返回添加新元素的个数，不包含更新已存在的元素。
+							使用后：命令返回被改变的元素数量，包括 添加新元素的数量 + 已存在元素被更新的数量
+					注意：
+						该命令的参数格式是固定的，即：经度要在纬度之前；
+						有效的经度介于-180度至180度之间，有效的纬度介于-85.05112878度至85.05112878度之间；
+						当给定的经纬度超出上述合法范围时，会返回error；
+						Redis GEO没有删除命令'GEODEL'，因为底层使用的是Sorted Set，所以完全可以使用'ZREM'命令删除
+					例：
+						geoadd city NX 116.41667 39.91667 beijing			<先经后维>
+						geoadd city 116.41667 39.91667 beijing  121.43333 34.50000 shanghai 117.20000 39.13333 tianjin
+				
+				// GEOPOS key member [member ...]
+					返回给定元素对应的经纬度。
+					注意：
+						使用GEOADD添加的元素，会被GeoHash转化为52位比特值，因此使用GEOPOS取出值并转为经纬度时，可能与添加的经纬度值有少许差异。
+					例：
+						geopos city beijing nanjing
+				
+				// GEODIST key member1 member2 [m|km|ft|mi]
+					返回两个给定元素之间的距离。<米|千米|英尺|英里>
+					注意：
+						在计算距离时会假设地球为完美的球形，在极限情况下最大会造成 0.5% 的误差。
+					例：
+						geodist city beijing shanghai km
+				
+				// GEOHASH key member [member ...]
+					GEOADD命令会将经纬度编码为52bit，该命令返回GeoHash编码转换后的11位字符串表示形式，该字符串形式。
+					注意：
+						返回给定元素,GeoHash编码值对应的字符串表示。
+					例：
+						geohash city beijing		// 返回："wx4g14s53n0"
+				
+				// GEORADIUS key longitude latitude radius m|km|ft|mi
+					通过给定的经纬度（longitude,latitude）和半径（radius）得到一个圆形区域，返回在区域内的元素。
 
 
 -> redis的发布与订阅
@@ -604,15 +660,12 @@
 	redis客户端可以订阅任意数量的频道
 
 
-
-
-
 -> redis的java客户端
 	客户端网站：https://redis.io/clients				
 	
 	-> 常用客户端
 		// Jedis
-			以redis命令作为方法名称，学习成本低，简单实用。但是Jedis实例是线程不安全的，多线程环境下需要基于连接池来连接使用
+			以redis命令作为方法名称，学习成本低，简单实用。但是“Jedis实例是线程不安全的(只创建一个jedis对象时)，多线程环境下需要基于连接池来连接使用”
 		// Lettuce
 			Lettuce是基于Netty实现的，支持同步、异步和响应式编程方式，并且是线程安全的。支持Redis的哨兵模式、集群模式、管道模式。
 		// Redisson
@@ -623,10 +676,323 @@
 	官网：https://github.com/redis/jedis
 	
 	使用步骤：
-		1、引入依赖
-			redis.clients 3.7.0
-		2、
+		0、创建maven项目
 	
+		1、引入依赖
+			<dependency>
+				<groupId>redis.clients</groupId>
+				<artifactId>jedis</artifactId>
+				<version>4.2.3</version>
+			</dependency>
+
+		2、设置redis.conf配置：
+			// 将bind属性注释掉，允许远程连接。<windows下的项目访问linux也是远程>
+			// 将protected-mode 改成no，关闭保护模式。
+			// linux防火墙放行redis服务端口。<当然你可以直接关闭防火墙，但是不建议>
+				方法：
+					查看端口号：ps -ef | grep redis				// 6379
+					打开端口：firewall-cmd --permanent --add-port=6379/tcp		<success开启成功>
+					重启服务器：reboot
+					查看是否已经开启：firewall-cmd --query-port=6379/tcp
+									  firewall-cmd --zone=public --list-ports
+		
+		3、单元测试
+			void geoTest() {
+				// 创建jedis对象
+				Jedis jds = new Jedis("192.168.10.128", 6379);
+
+				// 清空数据库
+				jds.flushAll();
+
+				// 测试
+				String ping = jds.ping();
+				System.out.println(ping);		// pong成功
+				
+				// 查看所有key
+				Set<String> keys = jds.keys("*");
+				for (String key : keys) {
+					System.out.println(key);
+				}
+
+				// 添加单个geo坐标
+				// geoadd city 116.41667 39.91667 beijing  121.43333 34.50000 shanghai 117.20000 39.13333 tianjin
+				jds.geoadd("city",116.41667,39.91667,"beijing");
+
+				// 构造多个POI坐标
+				GeoCoordinate shanghai = new GeoCoordinate(121.43333,34.50000);
+				GeoCoordinate tianjin = new GeoCoordinate(117.20000,39.13333);
+				Map<String, GeoCoordinate> map = new HashMap<>();
+				map.put("shanghai", shanghai);
+				map.put("tianjin", tianjin);
+
+				// 添加多个坐标
+				jds.geoadd("city", map);
+
+				// 获取geo类型的数据<返回北京的经纬度>
+				List<GeoCoordinate> list = jds.geopos("city", "beijing");
+				for (GeoCoordinate geoCoordinate : list) {
+					System.out.println(geoCoordinate.toString());
+				}
+
+				// 获取两个城市的距离 可以指定单位
+				Double cityDist = jds.geodist("city", "beijing", "tianjin", KM);
+				System.out.println(cityDist);
+				
+				// 以指定经纬度为中心，查找指定半径内的城市<以西安为例>
+				List<GeoRadiusResponse> city = jds.georadius("city", 108.940174, 34.341568, 1000, KM);
+				for (GeoRadiusResponse geoRadiusResponse : city) {
+					System.out.println(geoRadiusResponse.getMemberByString());
+				}
+				
+				// 查看所有POI
+				List<GeoRadiusResponse> geoRadiusResponses = jds.georadiusByMember("city", "beijing", 1000, KM);
+				for (GeoRadiusResponse geoRadiusRespons : geoRadiusResponses) {
+					System.out.println(geoRadiusRespons.getMemberByString());
+				}
+				
+				// 关闭Jedis对象
+				jds.close()
+
+			}
+			
+
+-> SpringDataRedis
+	SpringDataRedis是专门用来支持在spring管理项目对redis的操作，使用java操作redis最常用的是使用jedis，但并不是只有jedis可以使用，像jdbc-redis、jredis
+	也都属于redis的java客户端，他们之间是无法兼容的，如果你在一个项目中使用了jedis，然后后来决定弃用掉改用jdbc-redis就比较麻烦了，spring-data-redis提
+	供了redis的java客户端的抽象，在开发中可以忽略掉切换具体的客户端所带来的影响，而且他本身就属于spring的一部分，比起单纯的使用jedis，更加稳定。管理
+	起来更加自动化。
+	
+	-> 功能
+		1、连接池自动管理，提供了一个高度封装的“RedisTemplate”类
+		2、针对jedis客户端中大量api进行了归类封装,将同一类型操作封装为operation接口
+			ValueOperations				// 简单K-V操作						<对象创建：redisTemplate.opsForValue()>
+			HashOperations				// 针对map类型的数据操作			<对象创建：redisTemplate.opsForHash()>
+			ListOperations				// 针对list类型的数据操作			<对象创建：redisTemplate.opsForList()>
+			SetOperations				// set类型数据操作					<对象创建：redisTemplate.opsForSet()>
+			ZSetOperations				// zset类型数据操作					<对象创建：redisTemplate.opsForZSet()>
+		3、提供的有相关的序列化器
+			// JdkSerializationRedisSerializer
+				POJO对象的存取场景，使用JDK本身序列化机制，将pojo类通过ObjectInputStream/ObjectOutputStream进行序列化操作，最终redis-server中将存储字
+			节序列。是目前最常用的序列化策略。
+
+			// StringRedisSerializer
+				Key或者value为字符串的场景，根据指定的charset对数据的字节序列编码成string，是“new String(bytes, charset)”和
+			“string.getBytes(charset)”的直接封装。是最轻量级和高效的策略。
+
+			// JacksonJsonRedisSerializer
+				jackson-json工具提供了javabean与json之间的转换能力，可以将pojo实例序列化成json格式存储在redis中，也可以将json格式的数据转换成
+			pojo实例。因为jackson工具在序列化和反序列化时，需要明确指定Class类型，因此此策略封装起来稍微复杂。【需要jackson-mapper-asl工具支持】
+
+			// OxmSerializer
+				提供了将javabean与xml之间的转换能力，目前可用的三方支持包括jaxb，apache-xmlbeans；redis存储的数据将是xml工具。不过使用此策略，编程
+			将会有些难度，而且效率最低；不建议使用。【需要spring-oxm模块的支持】
+	
+	
+	-> SpringBoot使用SpringDataRedis
+		<推荐文章：https://blog.csdn.net/weixin_56219549/article/details/119484442>
+		1、项目创建，redis服务启动，防火墙端口放行
+		2、引入依赖
+			// redis依赖可以在创建项目时添加。
+				<!--Redis依赖-->
+				<dependency>
+					<groupId>org.springframework.boot</groupId>
+					<artifactId>spring-boot-starter-data-redis</artifactId>
+				</dependency>
+				<!--连接池依赖-->
+				<dependency>
+					<groupId>org.apache.commons</groupId>
+					<artifactId>commons-pool2</artifactId>
+				</dependency>
+	
+		3、配置yaml文件
+			spring:
+				redis:
+					host: 192.168.10.128
+					port: 6379
+					database: 2   	#选择2号库，默认0号库
+					#password:  	#默认为空
+					lettuce:    	#使用lettuce实现(默认使用lettuce)，如果使用jedis实现需要引入jedis依赖
+						pool:
+							max-active: 20    #最大连接数，负值表示没有限制，默认为8
+							max-wait: -1      #最大阻塞时间，负值表示没有限制，默认-1、
+							max-idle: 8       #最大空闲连接数，默认为8
+							min-idle: 0       #最小空闲连接数，默认为0
+	
+		4、自动注入RedisTemplate类型对象
+			@Autowired
+			private RedisTemplate redisTemplate
+		
+		5、测试
+			@Resource
+			private RedisTemplate redisTemplate;
+
+			@Test
+			void contextLoads() {
+				ValueOperations ops = redisTemplate.opsForValue();
+				ops.set("student:name", "qlj");
+
+				System.out.println(ops.get("student:name"));
+			}
+		
+	-> 序列化：
+		注意：上面测试结果。set进入redis的数据使用的是jdk的序列化，所以直接在linux打开的redis-cli客户端查看时会存在乱码。
+		例：key=\xac\xed\x00\x05t\x00\x0cstudent:name	value=\xac\xed\x00\x05t\x00\x03qlj
+		原因：
+			在Java中使用SpringDataRedis，可以接收任意类型(Object)的数据，然后将接受的数据转换成redis可以识别的类型，但是在Java中默认使用的序列化是jdk
+			自带的序列化工具，redis反序列化时，存入的就是这样一串乱码的数据。因此，需要在java中配置序列化工具，便于redis反序列化。
+			相反，当java想要获取redis中的数据时，由于redis中存入的就是jdk序列化工具产生的数据，所以取出后jdk反序列化就可以成功产生正常数据。
+		
+		源码：
+			// RedisSerializer序列化工具接口，其他序列化属性默认为null。
+			RedisSerializer keySerializer = null;
+			RedisSerializer valueSerializer = null;
+			RedisSerializer hashKeySerializer = null;
+			RedisSerializer hashValueSerializer = null;
+			// 当defaultSerializer为空时，java默认使用JdkSerializationRedisSerializer进行序列化<jdk序列化>。
+			// jdk底层使用的是ObjectOutputStream对象流进行序列化。	
+			if (defaultSerializer == null) {
+
+				defaultSerializer = new JdkSerializationRedisSerializer(
+						classLoader != null ? classLoader : this.getClass().getClassLoader());
+			}
+			
+		
+		-> 序列化工具的选择
+			进入RedisSerializer接口中，Ctrl+H 查看当前接口的所有实现类，这些类就是具体实现的序列化工具。只需要指定其他序列化类即可。
+			
+			一般
+				key对象的序列化选择：StringRedisSerializer
+				value对象的序列化选择：GenericJackson2JsonRedisSerializer
+		
+		-> 如何改变RedisTemplate序列化方式
+			1、创建Rdeisconfig类
+			2、配置内容：
+				@Configuration
+				public class RedisConfig {
+					@Bean
+					public RedisTemplate<String,Object> redisTemplate(RedisConnectionFactory connectionFactory){
+						// 创建RedisTemplate对象
+						RedisTemplate<String, Object> template = new RedisTemplate<>();
+						// 设置连接工厂
+						template.setConnectionFactory(connectionFactory);
+						// 创建json序列化工具
+						GenericJackson2JsonRedisSerializer jsonRedisSerializer = new GenericJackson2JsonRedisSerializer();
+						// 设置key的序列化
+						template.setKeySerializer(RedisSerializer.string());
+						template.setHashKeySerializer(RedisSerializer.string());
+						// 设置value的序列化
+						template.setValueSerializer(jsonRedisSerializer);
+						template.setHashValueSerializer(jsonRedisSerializer);
+						// 返回
+						return template;
+					}
+				}
+				
+	
+			3、测试：
+				// 创建一个pojo实体类：
+					@Data
+					@NoArgsConstructor
+					@AllArgsConstructor
+					public class Student {
+						private String name;
+						private int age;
+					}
+	
+				// 存储一个实体对象
+					@Test
+					void StudentTest() {
+						// 存入
+						redisTemplate.opsForValue().set("student:001",new Student("qlj",23));
+						// 查询
+						Student s = (Student)redisTemplate.opsForValue().get("student:001");
+						System.out.println("s = " + s);			// s = Student(name=qlj, age=23)	<实际是一个Student类型对象>
+					}
+				
+					查看图形化界面客户端中的数据：
+						// 一个json数据。
+						{
+						  "@class": "com.sg.pojo.Student",
+						  "name": "qlj",
+						  "age": 23
+						}
+					
+					注意：存入的数据中多存储了一个'@class'的值，作用是在java中使用get方法取出redis值时，返回一个实体对象，并不是一串字符串。
+					
+		-> 如何不在redis中写入实体类的@class信息
+			<@class对象信息存储在redis中非常浪费空间>
+				为了节省空间，我们并不会使用json序列化器来处理value，而是统一使用String序列化器，要求只能存储String类型的key和value。当需要java对象时，
+			手动完成对象的序列化和反序列化。
+				当然如果不使用Json序列化器就不能再redis中存储实体对象信息，所以在get取出redis的值时就不会返回实体对象，只是一个字符串。
+				因此，想要序列化与反序列化时就必须手动进行操作。
+				然而，好消息：
+					Spring默认提供了一个StringRedisTemplate类，它的key与value的序列化方式默认是String方式。省去了我们自定义配置RedisTemplate。
+				
+				StringRedisTemplate类底层配置了序列化为String类型<不需要RedisConfig配置类了>：
+					setKeySerializer(RedisSerializer.string());
+					setValueSerializer(RedisSerializer.string());
+					setHashKeySerializer(RedisSerializer.string());
+					setHashValueSerializer(RedisSerializer.string());
+					
+			操作：
+				1、注入StringRedisTemplate类
+					@Resource
+					StringRedisTemplate stringRedisTemplate;
+					
+				2、注入Json工具
+					// Json工具	<ObjectMapper是SpringMVC中默认实用的工具，也可以使用FastJson进行手动序列化>
+					private static final ObjectMapper mapper = new ObjectMapper();
+					
+				3、测试
+					@Test
+					void StudentTest02() throws JsonProcessingException {
+						// 创建对象
+						Student s = new Student("zmq", 24);
+						// 手动序列化
+						String str = mapper.writeValueAsString(s);
+						
+						// 存入
+						stringRedisTemplate.opsForValue().set("student:002",str);	// 不能直接存实体对象，因为不能自动序列化了
+						// 查询
+						String jsonStr = stringRedisTemplate.opsForValue().get("student:002");	// 查询出来一定是字符串类型
+						
+						// 手动反序列化
+						Student stuObj = mapper.readValue(jsonStr, Student.class);
+						System.out.println("stuObj:" + stuObj);
+					}
+					
+		-> 序列化总结
+			方案一：
+				1、自定义RedisTemplate
+				2、修改RedisTemplate的序列化器为GenericJackson2JsonRedisSerializer
+				
+			方案二：
+				1、使用StringRedisTemplate
+				2、写入Redis时，需要手动把对象序列化为Json
+				3、读取Redis时，需要手动将json字符串转换为对象
+				
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+			
+			
 
 
 
