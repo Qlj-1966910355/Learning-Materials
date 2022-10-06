@@ -1,0 +1,90 @@
+-> 分布式架构需要考虑的问题
+	1、服务拆分粒度<如何做业务拆分>？
+	2、服务集群地址如何维护？
+	3、服务之间如何通讯？
+	4、服务健康状态如何感知？
+
+-> 微服务架构特征
+	1、单一职责：微服务拆分粒度更小，每个服务都对应唯一的业务能力，做到单一职责，避免重复业务开发。
+	2、面向服务：微服务对外暴露业务接口。
+	3、自治：团队独立、技术独立、数据独立、部署独立。
+	4、隔离性强：服务调用做好隔离、容错、降级、避免出现级联问题。
+
+-> 微服务技术栈
+	1、Dubbo模式
+		基于Dubbo的技术体系；服务接口采用Dubbo协议标准；服务调用采用Dubbo方式
+	2、SpringCloud+Feign
+		使用SpringClould技术栈；服务接口采用Restful风格；服务调用采用Feign方式
+	3、SpringCloudAlibaba+Feign
+		使用SpringClouldAlibaba技术栈；服务接口采用Restful风格；服务调用采用Feign
+	4、SpringClouldAlibaba+Dubbo
+		使用SpringClouldAlibaba技术栈；服务接口采用Dubbo协议标准；服务调用采用Dubbo方式
+		
+-> SpringCloud功能组件
+	1、服务注册发现<Eureka、Nacos、Consul>
+	2、服务远程调用<OpenFeign、Dubbo>
+	3、服务链路监控<Zipkin、Sleuth>
+	4、统一配置管理<SpringCloudConfig、Nacos>
+	5、统一网关路由<SpringCloudGateway、Zuul>
+	6、流控、降级、保护<Hystix、Sentinel>
+
+-> SpringCloud与SpringBoot版本兼容关系
+	<左：SpringCloud版本；右：SpringBoot版本>
+	2020.0.x aka llford			2.4.x
+	Hoxton						2.2.x、2.3.x(Starting with SR5)
+	Greenwith					2.1.x
+	Finchley					2.0.x
+	Edgware						1.5.x
+	Dalston						1.5.x
+
+
+
+
+
+-> 服务拆分与远程调用
+	-> 拆分
+		1、不同微服务，不要重复开发相同业务
+		2、微服务数据独立，不要访问其他微服务的数据库
+		3、微服务可以将自己的业务暴露为接口，供其他微服务调用
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

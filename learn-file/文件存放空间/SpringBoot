@@ -1288,6 +1288,160 @@ day2-<springboot003>
 
 
 ----------------------------- idea翻译插件(translation) ---------------------------------
+---------------------------- 前后端接口测试工具(postman) --------------------------------
+
+
+
+
+----------------------------- 知识加油站 ---------------------------------
+
+-> SpringBoot手动创建项目
+	前提：maven仓库中存在SpringBoot项目所需的依赖。<也就是说必须在本机上创建过SpringBoot项目>
+	
+	步骤：
+		1、创建一个纯净的maven项目
+			<不需要选择任何模板，直接下一步填写坐标>
+		2、修改pom文件
+			// 父引用依赖<parent>
+			// java版本号<properties>(也可以不要)
+			// 其他依赖<dependencies>
+				例：spring-boot-starter-test(测试依赖)；spring-boot-starter-web(web依赖)
+			// build (打包时使用)
+		    <build>
+		        <plugins>
+		            <plugin>
+		                <groupId>org.springframework.boot</groupId>
+		                <artifactId>spring-boot-maven-plugin</artifactId>
+		            </plugin>
+		        </plugins>
+		    </build>
+
+		3、新建包，创建项目启动类
+			启动类位置：com.sg目录下
+			名称：可以任意。			
+			例：
+				@SpringBootApplication
+				public class Application {
+				    public static void main(String[] args) {
+				        SpringApplication.run(Application.class, args);
+				    }
+				}
+
+		4、测试
+			创建Controller类
+				@RestController
+				public class TestController {
+				    @GetMapping("/test")
+				    public String testRequest(){
+				        return "hello springboot";
+				    }
+				}
+
+-> 如何永久清除项目多余文件
+	例：.mvn文件夹、.gitignore、HELP.md、mvnw、mvnw.cmd
+		settings --> Editor --> Code Style --> File Types --> 点击右侧Ignored Files... --> 点击‘+’添加文件名<将.mvn添加进入即可>
+		
+-> REST风格
+	表现形式状态转换。
+	<根据REST风格对资源进行访问成为RESTful风格>
+	传统资源请求风格：
+		http://localhost:8080/user/getUser?id=10060457
+		http://localhost:8080/user/saveUser
+	REST风格：
+		http://localhost:8080/user/10060457
+		http://localhost:8080/user									<与传统风格的作用一样>
+		
+	常见行为：
+		http://localhost:8080/user						// 查询全部用户信息			GET(查询)
+		http://localhost:8080/user/1					// 查询指定用户信息			GET(查询)
+		http://localhost:8080/user						// 添加用户信息					POST(新增/保存)
+		http://localhost:8080/user						// 修改用户信息					PUT(修改/更新)
+		http://localhost:8080/user/1					// 删除用户信息					DELETE(删除)
+	注意：
+		上述行为是约定方式，约定不是规则，可以打破，所以称REST风格，而不是REST规则。
+		描述模块的名称通常使用复数，也就是加s的格式描述，表示此类资源，而非单个资源，例如：users、books、accounts...
+	
+	优点：
+		隐藏资源访问行为，无法通过地址得知对资源的操作；
+		书写简化
+	
+	问题：上面常见行为中查询全部用户与添加用户、修改用户地址一样，请求如何区分访问哪个资源？
+		解决方案：
+			使用不同的请求类型进行区分。<按照上面的常见行为后请求类型分类>
+		
+	使用：
+			@RequestMapping(value = "/users", method = RequestMethod.GET)
+	    public String getUsers(){
+	        return "查询全部数据！";
+	    }
+
+	    @RequestMapping(value = "/users/{id}", method = RequestMethod.GET)
+	    public String getUser(@PathVariable String id){
+	        return "查询指定id的用户";
+	    }
+
+	    @RequestMapping(value = "/users", method = RequestMethod.POST)
+	    public String save(){
+	        return "保存用户";
+	    }
+
+	    @RequestMapping(value = "/users", method = RequestMethod.PUT)
+	    public String update(@PathVariable User user){
+	        return "修改用户信息"+user;
+	    }
+
+	    @RequestMapping(value = "/users/{id}", method = RequestMethod.DELETE)
+	    public String delete(@PathVariable String id){
+	        return "删除用户";
+	    }
+	    
+		介绍：
+	  	@RequestMapping：
+	  		设置当前控制器方法请求访问路径
+	  	@PathVariable：
+				绑定路径参数与处理器方法形参间的关系，要求路径参数名与形参名一一对应，也可以对@PathVariable注解指定对应名称。
+			其他接受参数的注解：
+				@RequestBody、@RequestParam
+				区别：
+					@RequestParam用于url地址传参或表单传参
+					@RequestBody用于接收json格式数据
+					@PathVariable用于接收路径参数，使用{参数名称}描述路径参数
+				应用：
+					后期开发中，发送请求参数超过1个时，以json格式为主，@RequestBody应用较广
+					如果发送非json格式数据，选用@RequestParam接收请求参数
+					采用RESTful进行开发，当参数数量较少时，例如1个，可以采用@PathVariable接收请求路径变量，通常用于传递id值
+	    
+		优化：
+	  	 1、@RequestMapping中的value属性，出现重复路径"/users"，可以将重复部分写在类上面，例：@RequestMapping("/users")。
+	  	 	注意：当前类中的所有方法路径都要以'/users'开始，其余后缀部分写在方法上即可。<会自动拼接><完全重复就不用写@@RequestMapping注解>
+	  	 2、@RequestMapping可以由不同请求类型的Mapping注解进行替换，不需要写method属性。例：@GetMapping
+	  
+	  总结代码：
+				@RestController
+				@RequestMapping("/users")
+				public class Test01Controller {
+				    // restful风格
+				    @GetMapping
+				    public String getUsers(){
+				        return "查询全部数据！";
+				    }
+				    @GetMapping("/{id}")
+				    public String getUser(@PathVariable String id){
+				        return "查询指定id的用户";
+				    }
+				    @PostMapping
+				    public String save(){
+				        return "新增用户";
+				    }
+				    @PutMapping
+				    public String update(@PathVariable User user){
+				        return "修改用户信息";
+				    }
+				    @DeleteMapping("/{id}")
+				    public String delete(@PathVariable String id){
+				        return "删除用户";
+				    }
+				}
 							  
 
 
