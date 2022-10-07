@@ -837,7 +837,7 @@ day2-<springboot003>
 
 ---------------------	
 
--> 整合mybatis框架	
+-> 整合mybatis框架
 	<springboot004>
 	<创建时勾选：sql：jdbc api 、mysql driver 、spring web>
 	
@@ -871,6 +871,11 @@ day2-<springboot003>
 			type-aliases-package: com.sg.pojo
 			#配置Mapper.xml文件位置
 			mapper-locations: classpath:mybatis/mapper/*.xml
+			configuration:
+				#开启驼峰功能
+				#<mybatis默认实体类属性名与数据库字段名一一对应，如果字段名有下划线时，
+				# 属性默认必须包含下划线，配置true后，可以去除下划线，按照驼峰命名法映射>
+				map-underscore-to-camel-case: true
 		
 	-> 在pojo目录中创建Users实体类
 		// 连接数据库后再创建，方便复制属性名
@@ -1025,10 +1030,6 @@ day2-<springboot003>
 	
 -> Shiro<安全管理>
 	
-	
-	
-
-
 
 
 

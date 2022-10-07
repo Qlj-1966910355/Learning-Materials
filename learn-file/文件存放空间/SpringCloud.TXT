@@ -47,34 +47,344 @@
 		2、微服务数据独立，不要访问其他微服务的数据库
 		3、微服务可以将自己的业务暴露为接口，供其他微服务调用
 	
+	-> 远程调用
+		<使用Spring框架提供的远程调用类RestTemplate>(类似于HttpClient功能)
+		RestTemplate介绍：
+				RestTemplate是由Spring框架提供的一个可用于应用中调用rest服务的类它简化了与http服务的通信方式，统一了RESTFul的标准，封装了http连接，
+			我们只需要传入url及其返回值类型即可。相较于之前常用的HttpClient，RestTemplate是一种更为优雅的调用RESTFul服务的方式。
+				RestTemplate类的设计原则与许多其他Spring的模板类(例如JdbcTemplate)相同，为执行复杂任务提供了一种具有默认行为的简化方法。
+				RestTemplate默认依赖JDK提供了http连接的能力（HttpURLConnection），如果有需要的话也可以通过setRequestFactory方法替换为例如
+			Apache HttpCompoent、Netty或OKHttp等其他Http libaray。
+				考虑到了RestTemplate类是为了调用REST服务而设计的，因此它的主要方法与REST的基础紧密相连就不足为奇了，后者时HTTP协议的方法：HEAD、GET、
+			POST、PUT、DELETE、OPTIONS例如，RestTemplate类具有headForHeaders()、getForObject()、putForObject()，put()和delete()等方法。
+		
+		使用RestTemplate远程调用：
+			1、注册RestTemplate
+				在消费者服务(Order服务)中注册RestTemplate。
+				例：
+					@MapperScan("cn.itcast.order.mapper")
+					@SpringBootApplication
+					public class OrderApplication {
+						// 项目main方法
+						public static void main(String[] args) {
+							SpringApplication.run(OrderApplication.class, args);
+						}
+						// 注册RestTemplate
+						@Bean
+						public RestTemplate restTemplate(){
+							return new RestTemplate();
+						}
+					}
+			
+			2、利用RestTemplate对服务提供者发送请求
+				例：
+					首先注入RestTemplate类：
+					    @Autowired
+						private RestTemplate restTemplate;
+					在业务方法service中发送请求：
+						// 1.查询订单
+						Order order = orderMapper.findById(orderId);
+						
+						// 2.利用RestTemplate发起http请求，查询用户
+						// 2.1.url路径
+						String url = "http://localhost:8081/user/" + order.getUserId();
+						// 2.2.发送http请求，实现远程调用
+						User user = restTemplate.getForObject(url, User.class); // 参数2表示：请求响应返回值类型<json自动变成User>
+						
+						// 封装User对象到Order
+						order.setUser(user);
+						// 4.返回
+						return order;
+				注：
+					重要的步骤是如何发送并响应信息。<步骤2>
+					url地址就是当前服务对服务提供者发送请求的地址，参数order.getUserId()是请求参数，是一种restful风格的调用方式。
+					getForObject()方法采用get请求类型进行发送。
+					User.class表示响应数据类型。
+			
+	-> 服务提供者与消费者
+		提供者：接收请求并响应消费者所需的服务称为提供者。<暴露接口>
+		消费者：发送请求的服务称为消费者。<调用接口>
+		
+		注意：
+			一个服务既可以是提供者又可以使消费者。<例：A 发送请求给 B，B 发送请求给 C。此时B既是提供者又是消费者>
+	
 
+-> Eureka注册中心
+	以上远程调用出现的问题：
+		url地址直接硬编码在服务中。
+			在多环境的项目中，ip地址发生变化。在多服务项目中，一个业务可能有多个服务，端口号不同。
+	
+	eureka的作用：
+		消费者如何获取服务提供者的信息？
+			服务提供者启动时向eureka注册自己的信息；
+			eureka保存这些信息；
+			消费者根据服务名称向eureka拉去提供者信息。
+		多个服务提供者，消费者该如何选择？
+			服务消费者利用负载均衡算法，从服务列表中挑选一个。
+		消费者如何感知服务提供者的健康状态？
+			服务提供者每个30s向EurekaServer发送心跳请求，报告健康状态；
+			eureka会更新记录服务列表信息，心跳不正常就会剔除；
+			消费者就可以拉取到最新的信息。
+	
+	eureka架构角色：
+		EurekaServer：服务端，注册中心
+			记录服务信息；
+			心跳监控
+		EurekaClient：客户端
+			Provider：服务提供者
+				注册自己的信息到EurekaServer
+				每个30s向EurekaServer发送心跳
+			Consumer：服务消费者
+				根据服务名称从EurekaServer拉取服务列表
+				基于服务列表做负载均衡，选中一个微服务后发起远程调用
+				
+	-> 搭建EurekaServer并注册服务
+		-> 创建一个eureka的微服务
+			-> 在父工程下创建eureka服务；
+				项目结构-->modules-->添加maven结构-->直接下一步(不勾选模板)-->选择父工程‘parent’，填写名称-->完成
+			-> 引入eureka服务端依赖
+				<dependencies>
+					<!--eureka服务端-->
+					<dependency>
+						<groupId>org.springframework.cloud</groupId>
+						<artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>
+					</dependency>
+				</dependencies>
+			-> 添加项目启动类
+				例：
+					在Java目录下添加启动类：com.sg.eureka.EurekaApplication
+						@EnableEurekaServer     // Eureka自动装配开关
+						@SpringBootApplication
+						public class EurekaApplication {
+							public static void main(String[] args) {
+								SpringApplication.run(EurekaApplication.class, args);
+							}
+						}
+			-> 添加application.yml配置文件
+				server:
+					port: 10086 #服务端口
+				spring:
+					application:
+						name: eurekaserver    #当前微服务eureka名称
+				eureka:
+					client:
+						service-url:
+							#eureka也是一个微服务，所以eureka将自己添加进eureka中
+							defaultZone: http://127.0.0.1:10086/eureka  #多个eureka集群互相交流<当前是单机模式，此处应该是eureka集群地址>
+			-> 通过启动类启动eureka服务。
+				浏览器访问：http://localhost:10086/
+			
+			注意：
+				eureka微服务自己也是需要eureka进行管理的，所以才需要配置yml中信息。
+				访问页面中‘Instances currently registered with Eureka’是eureka中当前管理的服务。<此时只有eureka这一个服务>
+		
+		-> 将提供者与消费者服务注册到eureka中
+			1、提供者服务配置：
+				-> 导入eureka客户端依赖
+					<!--eureka客户端依赖-->
+					<dependency>
+						<groupId>org.springframework.cloud</groupId>
+						<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+					</dependency>
+				-> 配置eureka服务地址与当前服务名称
+					spring:
+						application:
+							name: userservice    #当前微服务user名称
+					eureka:
+						client:
+							service-url:
+								defaultZone: http://127.0.0.1:10086/eureka
+								
+			2、消费者服务配置
+				-> 导入eureka客户端依赖
+					<!--eureka客户端依赖-->
+					<dependency>
+						<groupId>org.springframework.cloud</groupId>
+						<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+					</dependency>
+				-> 配置eureka服务地址与当前服务名称
+					spring:
+						application:
+							name: orderservice    #当前微服务order名称
+					eureka:
+						client:
+							service-url:
+								defaultZone: http://127.0.0.1:10086/eureka
 
+			注意：yml文件中不允许有同名的配置名称。所以要进行同名称合并。
+			
+		-> 刷新/重启所有微服务。
+			此时eureka页面中有三个服务。<注意：可能会存在浏览器缓存问题，刷新页面时先清理浏览器缓存>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	-> 如何实现多实例(服务)运行。
+		也就是说，将提供者服务进行多次启动，实现多实例部署，每个实例的端口号必须不同，要修改端口号。
+		<多实例就可以进行负载均衡>
+		例：
+			需要多个userservice服务实例
+		步骤：
+			在idea最底部工具栏中，打开'Services'栏。--> 找到UserApplication启动类，右键‘copy confguration...’ --> 修改名称<不重复即可>
+			--> 在'Environment'栏的'VM options'(虚拟机选项)中添加“-Dserver.port=8082”(不冲突即可) --> 保存
+			--> 此时在'Services'栏中多出一个未运行的服务，执行即可。
+			《也可以在idea顶部'编辑配置'中copy服务。》
+		
+		注意：
+			运行后，重新刷新eureka网页，可以发现‘USERSERVICE’服务的‘Status’中有两个实例。
+	
+	
+	-> 消费者orderservice从注册中心拉取服务信息
+		服务拉取是基于服务名称获取服务列表，然后在对服务列表做负载均衡。<上面的userservice就是一个服务名称两个实例>
+		步骤：
+			1、修改代码
+				<在未使用注册中心eureka之前，我们使用了RestTemplate进行远程访问调用。此时我们采用eureka进行拉取服务信息>
+				将
+					String url = "http://localhost:8081/user/" + order.getUserId();
+				修改为：
+					String url = "http://userservice/user/" + order.getUserId();		// 采用微服务名称代替ip与端口号
+			
+			2、在消费者服务的启动类中的RestTemplate添加负载均衡注解。
+				@Bean
+				@LoadBalanced			// 负载均衡注解<作用：拦截RestTemplate发送的请求>
+				public RestTemplate restTemplate(){
+					return new RestTemplate();
+				}
+				
+		测试：
+			重新启动order服务，清空浏览器缓存，向order发送一个请求(这个请求到消费者服务器后，消费者服务器拉取提供者服务的信息)。
+			注意：
+				想要测试哪个实例被调用，可以清空idea中两个user提供者实例的执行日志，当前端执行成功，提供者实例就会执行，执行后就会产生日志。
+		
+****总结：
+		1、搭建EurekaServer
+			// 引入eureka-server依赖
+			// 添加@EnableEurekaServer注解
+			// 在application.yml中配置eureka地址
+		2、服务注册
+			// 引入eureka-client依赖
+			// 在application.yml中配置eureka地址
+		3、服务拉取/发现
+			// 引入eureka-client依赖
+			// 在application.yml中配置eureka地址
+			// 给RestTemplate添加@LoadBalanced注解
+			// 用服务提供者的服务名称远程调用
+			
+			
+-> Ribbon负载均衡原理
+	<学习文章：https://blog.csdn.net/tf835991342/article/details/122236383>
+	小问题：我们知道，在消费者服务中采用的是服务提供者的服务名称代替了ip与端口号，那是否可以直接在浏览器执行这个被代替后的地址呢？
+		修改前可以，修改后不可以。
+		原因：服务名不是一个ip或地址，就算发给服务器也解析不了，何况浏览器解析不了也发不过去
+	那么消费者服务代码修改后，它是如何将http://userservice/user/解析出来并选择一个提供者实例的？
+		原因往下看。
+	
+	负载均衡流程：
+		1、消费者服务发起请求http://userservice/user/1
+		2、进入eureka-server中拉取userservice
+		3、返回指定服务名称对应的实例列表：localhost:8081、localhost:8082
+		4、轮询选择一个实例进行访问并响应
+		<可查看PPT图例28>
+	
+	Ribbon在哪里进行拦截了？
+		还记得我们在消费者服务中的启动类中配置了RestTemplate吗，我们在RestTemplate上添加了@LoadBalanced注解。
+		该注解作用就是拦截RestTemplate发送的请求。
+		
+	基本流程：
+		<以消费者服务中的http://userservice/user/1请求为例>
+		1、LoadBalancerIntercepor拦截我们的RestTemplate请求http://userservice/user/1
+		2、RibbonLoadBalancerClient会从请求url中获取服务名称，也就是user-service
+		3、DynamicServerListLoadBalancer根据user-service到eureka拉取服务列表
+		4、eureka返回列表，localhost:8081、localhost:8082
+		5、IRule利用内置负载均衡规则<默认轮询>，从列表中选择一个，例如localhost:8081
+		6、RibbonLoadBalancerClient修改请求地址，用localhost:8081替代userservice，得到http://localhost:8081/user/1，发起真实请求
+	
+	轮询的负载均衡算法：
+		rest接口第几次请求数 % 服务器集群总数量 = 实际调用服务器位置下标 ，每次服务重启动后rest接口计数从1开始。
+	
+	修改负载均衡规则：
+		<常见：RoundRobinRule(轮询)、RandomRule(随机)、RetryRule(重试)...>(Rule接口有7个实现类)
+		通过定义IRule实现可以修改负载均衡规则，有两种方式：
+		1、在消费者服务中的启动类中定义一个新的IRule。
+			// 随机负载均衡
+			@Bean
+			public IRule randomRule(){
+				return new RandomRule();
+			}
+			注意：这种方式全局配置，只要是在该消费者服务中实现RestTemplate请求，都是这种负载均衡方式。
+		2、	在配置文件消费者服务的.yml中配置。
+			#修改IRule实现的负载均衡方式
+			userservice:		#这个是指定的服务提供者名称
+				ribbon:
+					NFLoadBalancerRuleClassName: com.netflix.loadbalancer.RandomRule  #'随机'负载均衡
+			注意：这种配置方式，可以指定一个服务提供者进行配置。
+	
+	-> Ribbon负载均衡'饥饿加载'
+		Ribbon默认采用的是懒加载，即第一次访问时才会创建LoadBalanceClient，请求时间很长。
+		饥饿加载：
+			在项目启动时就会创建，降低第一次访问的耗时。
+		配置饥饿加载：
+			<在消费者服务中的yml中进行配置>
+			ribbon:
+				eager-load:
+					enabled: true     #开启饥饿加载
+					clients: userservice    #指定对userservice这个服务饥饿加载
+	
+	
+	
+-> Nacos注册中心	
+	下载：
+		https://github.com/alibaba/nacos --> releases --> Tags --> 选择一个版本下载		<https://github.com/alibaba/nacos/tags>
+	安装：
+		直接解压即可。
+	启动：
+		在bin目录下的startup.cmd启动文件。
+		管理员模式下在当前目录下，执行：startup.cmd -m standalone		// 单机启动
+	
+	客户端：
+		在cmd中启动成功后，nacos图标后有客户端网页链接地址，直接访问这个html即可。
+		账号：nacos	密码：nacos
+	
+	-> 将服务注册到Nacos中
+		1、在父工程的pom文件中添加spring-cloud-alibaba的管理依赖
+			 <!--引入spring-cloud-alibaba管理依赖-->
+            <dependency>
+                <groupId>com.alibaba.cloud</groupId>
+                <artifactId>spring-cloud-alibaba-dependencies</artifactId>
+                <version>2.2.5.RELEASE</version>
+            </dependency>
+			
+		2、如果你是修改上面的项目，需要注释掉原有的eureka依赖<如果不是可以忽略该步骤>
+		
+		3、添加nacos的客户端依赖
+			<!--nacos-client依赖-->
+			<dependency>
+				<groupId>com.alibaba.cloud</groupId>
+				<artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+				<version>2.2.5.RELEASE</version>
+			</dependency>
+		
+		4、修改服务提供者与消费者的yml文件，添加nacos地址、微服务名称
+			spring:
+				application:
+					name: userservice   #当前微服务的名称
+				cloud:
+					nacos:
+						server-addr: localhost:8848  #nacos服务地址
+		
+		5、消费者服务中使用RestTemplate发送请求
+			5.1、在消费者服务(Order服务)的启动类中注册RestTemplate。
+				// 注册RestTemplate
+				@Bean
+				@LoadBalanced		// 负载均衡注解<作用：拦截RestTemplate发送的请求>
+				public RestTemplate restTemplate(){
+					return new RestTemplate();
+				}
+			5.2、利用RestTemplate发送远程请求<与eureka一样>
+				String url = "http://userservice/user/" + order.getUserId();
+				User user = restTemplate.getForObject(url, User.class);
+			
+		6、启动测试
+			启动后，在nacos网页客户端中查看启动后的服务已经注册到注册中心。
+	
+	
 
 
 
