@@ -329,14 +329,15 @@
 	
 	
 	
--> Nacos注册中心	
+-> Nacos注册中心
+	官网：https://nacos.io/zh-cn/		文档：https://nacos.io/zh-cn/docs/what-is-nacos.html
 	下载：
 		https://github.com/alibaba/nacos --> releases --> Tags --> 选择一个版本下载		<https://github.com/alibaba/nacos/tags>
 	安装：
 		直接解压即可。
 	启动：
 		在bin目录下的startup.cmd启动文件。
-		管理员模式下在当前目录下，执行：startup.cmd -m standalone		// 单机启动
+		管理员模式下在当前目录下，执行：startup.cmd -m standalone		// 单机启动<非集群模式>
 	
 	客户端：
 		在cmd中启动成功后，nacos图标后有客户端网页链接地址，直接访问这个html即可。
@@ -384,16 +385,206 @@
 		6、启动测试
 			启动后，在nacos网页客户端中查看启动后的服务已经注册到注册中心。
 	
+	-> Nacos服务分级存储模型<集群>
+		场景：
+			对于一个服务可以部署多个实例，但不能将多个实例放在同一个地方，因此需要将多个实例部署到多个'机房'<容灾>。例：上海、西安、北京三个位置都部署
+			了一个服务的实例，且一个位置有多个实例，每个位置构成了一个集群，多个位置有多个集群，共同协调。
+		分级：
+			服务(一级) --> 集群(二级) --> 实例(三级)
+		
+		-> 服务跨集群调用问题
+			服务调用时尽可能优先选择本地集群的实例，跨集群调用延迟较高。本地集群不能调用时才去访问其他集群实例。
+			
+		-> 服务集群属性配置
+			<目前userservice服务提供者有3个实例，将两个放在一个集群，剩余一个放在一个集群>
+				1、修改application.yml配置信息。
+					
+					spring.cloud.nacos.discovery.cluster-name=xian		// 注意合并同名称<修改为yml格式>
+
+					注意：配置完成后，如果想让user1与user2组成一个集群，则重启这两个实例。重新将'xian'集群名称修改为'weinan'，重启user3实例。
+						  此时，集群'xian'中有两个实例，集群'weinan'中有一个实例。<配置好'weinan'名称后不要重启user1和user2>
+		
+				2、在Nacos网页监控页面查看集群变化。
+
+			<目前orderservice服务消费者想要获取本地集群中的实例，所以也需要配置集群属性>
+				1、配置orderservice服务实例所在的位置，按照userservice集群名称配置。
+					例：消费者服务目前位于'xian'，所以就想调用userservice的'xian'集群实例。
+						spring.cloud.nacos.discovery.cluster-name=xian    #当前消费者服务集群名称<与服务提供者某个集群名称一致>
+					注意：
+						我们知道消费者访问提供者时完全由Ribbon决定，选择实例也由IRule的负载均衡规则决定，所以此时order访问时还是进行'轮询'访问。
+						目前并不能优先调用本地集群的提供者实例。
+					
+				2、设置负载均衡的IRule为NacosRule，这个规则优先会寻找与自己同集群的服务<优先随机调用同集群实例>
+					userservice:		#这个是指定的服务提供者名称
+						ribbon:
+							NFLoadBalancerRuleClassName: com.alibaba.cloud.nacos.ribbon.NacosRule		#负载均衡规则(优先会寻找与自己同集群的服务)
+
+				测试：
+					将所有提供者服务实例开启，调用发现，消费者只会调用当前同集群的提供者服务，而且是随机调用。
+					停止同集群下的提供者服务实例，发现第一次访问会找不到外地集群位置，再次访问就会成功访问。
+			
+		-> 按权重负载均衡
+			<服务器设备性能有差异，部分实例所在机器性能较好，另一些较差，我们希望性能好的机器承担更多的用户请求。>
+			Nacos提供了权重配置来控制访问频率，权重越大则访问频率越高
+			-> 设置服务实例权重
+				1、在Nacos网页控制台可以设置实例的权重值，首先选中实例后面的'编辑'按钮。
+				2、将权重设置为0.1，测试可以发现8081被访问到的频率大大降低。
+					注：权重值在[0,1]之间；设置为0后不会访问；同集群内的多个实例，权重越高被访问的频率越高
+						默认情况下所有实例权重为1。<与其说是权重，不如说时调用实例的概率>
+			使用场景：
+				<平滑升级>
+				在单实例项目中想要升级应用/程序时，必须下线后才能再次替换。而在多实例中，可以调节权重，权重调节为0后，用户就不会进行访问，此时可以
+				进行程序升级，但不会影响用户访问其他实例。升级完成后，重新设置权重为0.1，此时放进来一少部分用户进行测试，成功后再调节权重完成升级。
 	
+	-> Nacos环境隔离-namespace
+		<学习文章：https://www.kancloud.cn/qingshou/aaa1/2667182>
+		结构：
+			namespace 包含 group 包含 service/dataid
+			
+			// 一个namespace命名空间可以包含多个分组
+			// 一个分组可以有多个子项目或者子模块的微服务
+			// 每个子项目有自己的dataid，dataId命名规则带后缀，如：xxxx-dev.yaml、xxxx-pro.yaml，可以产生对某一个子项目部署环境配置文件加载隔离的效果。
+		
+		-> 创建并使用namespace
+			微服务在没有明确指定配置的情况下， 默认使用的是Public命名空间。
+			1、首先创建一个namespace
+				在nacos网页控制台中创建namespace
+				步骤：
+					左侧栏'命名空间' --> 新建命名空间 --> 填写命名空间名与描述，id可以不填<默认会指定>(例：dev 开发环境) --> 确定
+			
+			2、使用创建的dev命名空间
+				在服务中配置服务的namespace。
+				<可以服务隔离配置与配置隔离配置>
+				
+					服务隔离配置：微服务属于不同的namespace，彼此之间不能远程调用
+						spring.cloud.nacos.discovery.namespace=5279d5f1-eb9d-4ef4-abc1-86293aeb38a9		// 命名空间
+					
+					配置隔离配置：同一个namespace下的配置文件可以为该namespace下的多个子项目共享，跨namespace则无法实现配置文件共享
+						spring.cloud.nacos.config.namespace=5279d5f1-eb9d-4ef4-abc1-86293aeb38a9
+					下面只测试服务隔离配置配置隔离不使用。
+			
+			3、测试
+				1、我们只在消费者服务配置了命名空间，看一下namespace的效果。
+				2、重启消费者服务orderservice，刷新nacos网页控制台，可以看到服务列表中的dev模块下有orderservice服务。
+				3、向消费者服务发送请求，测试是否可以执行成功<不同的namespace，彼此之间不能远程调用>
+					此时出现500错误，由于namespace不同，会导致找不到userservice。
+			注意:
+				每个namespace都有唯一id
+				服务配置namespace时要写id而不是名称
+				不同namespace下的服务互相不可见
+	
+	-> Nacos与eureka的原理区别
+		
+		1、nacos注册中心感知服务健康状态时分为临时实例与非临时实例感知。
+			临时：<服务向nacos发送心跳>服务被动/主动关闭后，nacos接收的心跳信息异常，直接下线对应服务
+			非临时：<nacos主动获取服务心跳>如果发现服务异常关闭，处于不健康状态，则不会将服务删除下线，只会标记不健康。
+			<非临时实例需要配置，且若配置后不删除这个实例一直在nacos中>
+		   eureka只有临时实例。
+		2、消费者服务会拉取nacos服务列表，并形成缓存，不会每次请求都要回去列表。
+			服务列表缓存会定时进行更新。更新分为两种：
+				① <pull>消费者定时拉取nacos中的服务列表。
+				② <push>nacos中的服务发生变更，主动向消费者服务发送变更信息，及时更新缓存列表。
+		   eureka只能做拉取操作。
+		3、nacos集群默认采用AP模式，当集群中存在非临时实例时，采用CP模式。
+		   eureka只有AP模式。
 
+		非临时实例配置：
+			在yml中配置
+			spring.cloud.nacos.discovery.ephemeral=false	#设置非临时实例	
+	
+	
+-> Nacos统一配置管理
+	-> 基本介绍
+		在单体应用中，配置管理可能不是什么大的事情，通常会以配置文件的方式。常见的方法比如将配置通过打包脚本打入应用包中，或者直接放到运行应用的
+		服务器的特定目录下，或者存储到数据库中。这种方式在传统的单体应用中简单有效，但是也会有些比较棘手的问题。
+		比如：
+			// 配置变化频繁时，需要频繁的打包部署应用。
+			// 不同环境的配置需要分开管理（比如测试环境与生产环境）。
+			// 而在分布式微服务架构中，服务数量剧增，如果还是手动去实现配置信息的修改或数据的迁移等，效率是很低的，而且手动操作配置也极有可能出现
+			   错误的情况。
+		复杂的业务对应大量的配置项，对集群部署的应用配置进行修改时需要修改每个节点上的应用配置，在这种背景下，中心化的配置服务即配置中心应运而生。
+		配置中心：
+			<
+			 配置中心就是一种统一管理各种应用配置的基础服务组件，配置中心可以把业务开发者从复杂以及繁琐的配置中解脱出来，只需专注于业务代码本身，从
+			 而能够显著提升开发以及运维效率。同时将配置和发布包解藕也进一步提升发布的成功率，并为运维的细力度管控、应急处理等提供强有力的支持。
+			>
 
+		在微服务架构中，微服务的统一配置管理一般有以下需求：
+			// 集中管理配置：一个使用微服务架构的应用系统可能会包括成千上万个微服务，因此集中管理配置是非常有必要的。
+			// 不同环境不同配置：例如，数据源配置在不同的环境（开发、测试、预发布、生产等）中是不同的。
+			// 运行期间可动态调整：例如，可根据各个微服务的负载情况，动态调整数据源连接池大小或熔断阈值，并且在调整配置时不重启微服务。
+			// 配置修改后自动更新：如配置内容发生变化，微服务能够自动更新配置。
 
+		综上所述，对于微服务架构而言，一个通用的配置管理机制必不可少，常见做法是使用配置服务器管理配置。
 
+	-> 实现配置管理
+		1、在nacos中创建配置文件
+			步骤：
+				1、在nacos网页客户端中，打开左侧'配置管理'栏 --> '配置列表'
+				2、点击右边'+'，进行配置。
+					// data id：一般使用'服务名称-运行环境.yaml'名称，例：userservice-dev.yaml
+					// group：分组，默认即可
+					// 描述：随意。例：userservice的开发环境配置文件。
+					// 配置格式：yaml
+					// 配置内容：
+						<注意：配置内容是将来用于热更新的，所以配置内容是一些经常进行修改的配置信息。例：数据库地址一般不需要热更新>
+						例：配置日期格式
+							pattern:
+								dateformat: yyyy-MM-dd HH:mm:ss		// 日期格式配置 <以后可以更改此处实现日期的热更新>
 
-
-
-
-
+		2、服务读取创建的配置文件
+			问题：spring是在什么时候读取项目中的application.yml文件的？
+			答：项目启动 ---> 读取项目配置文件application.yml ---> 创建Spring容器 ---> 加载Bean对象
+			
+			nacos配置文件读取流程：
+				项目启动 ---> 先读取nacos配置文件 ---> 读取项目配置文件application.yml ---> 创建Spring容器 ---> 加载Bean对象
+			
+			思考：既然优先读取的是nacos配置文件，而nacos的地址却在application.yml中配置着，想要读取到外部的nacos配置文件，肯定是要先知道nacos地址。
+			
+			解决方案：将nacos地址单独取出来，放到读取nacos配置文件之前。
+				spring中提供了一个bootstrap.yml文件，这个配置文件spring会优先读取。
+			
+			所以：
+				项目读取nacos配置文件流程：
+					项目启动 ---> 读取bootstrap.yml文件 ---> 读取nacos配置文件 ---> 读取项目配置文件application.yml ---> 创建Spring容器 ---> 加载Bean
+			
+			-> 步骤：
+				1、引入nacos配置管理客户端依赖<在userservice服务中>
+			        <!--nacos配置管理客户端依赖-->
+					<dependency>
+						<groupId>com.alibaba.cloud</groupId>
+						<artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
+						<version>2.2.5.RELEASE</version>
+					</dependency>
+				
+				2、在userservice中的resource目录添加一个bootstrap.yml文件，这个文件是引导文件，优先级高于application.yml
+					spring:
+					  application:
+						name: userservice   #服务名称
+					  profiles:
+						active: dev   #开发环境
+					  cloud:
+						nacos:
+						  server-addr: localhost:8848  #nacos服务地址
+						  config:
+							file-extension: yaml  #文件后缀名
+				
+				3、删除application.yml中重复的配置信息
+					例：当前微服务的名称；nacos服务地址。<因为bootstrap中已经存在>
+				
+				4、在controller中写一个接口，用于测试nacos配置文件是否能够使用。
+					4.1、注入nacos配置文件的配置信息，使用dateformat接收
+					    @Value("${pattern.dateformat}")
+						private String dateformat;
+					4.2、编写接口 (配置信息实际是'yyyy-MM-dd HH:mm:ss')
+						@GetMapping("/now")
+						public String now() {
+							return new SimpleDateFormat(dateformat).format(new Date());
+						}
+				
+				5、重启服务，测试是否正常响应
+					浏览器输入：http://localhost:8081/user/now
+			
 
 
 
