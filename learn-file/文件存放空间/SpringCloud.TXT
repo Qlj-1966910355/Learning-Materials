@@ -584,7 +584,345 @@
 				
 				5、重启服务，测试是否正常响应
 					浏览器输入：http://localhost:8081/user/now
+					
+			-> 实现配置文件热更新
+				<虽然在nacos配置管理中创建了配置信息，但是如果修改后，依然不能实施生效>
+				方式一：
+					通过@Value注入后，结合注解@RefreshScope刷新配置。
+					例：
+						在controller类上面添加：
+							@RefreshScope           //配置文件热更新<配合@Value一起使用>
+				方式二：
+					通过 @ConfigurationProperties 注入配置，同时配合 @Component 将配置交给spring管理生效，自动刷新。
+					1、首先创建一个配置类，专门用于接收nacos配置信息。
+						@Data
+						@Component
+						@ConfigurationProperties(prefix = "pattern")		//  prefix 绑定配置文件中的配置，相当于捕捉到外部的配置信息
+						public class NacosProperties {
+							private String dateformat;
+						}
+						注意：
+							prefix参数拼接属性名称，必须与配置信息一致。配置类名称不能为"NacosProperties"。
+							进行Spring Boot配置文件部署时，发出警告Spring Boot Configuration Annotation Processor not configured，但是不影响运行。
+								<添加spring-boot-configuration-processor依赖即可解决>
+					2、将配置类使用@Autowired注入到controller类中，使用get方法获取这个实体类接收的配置信息。					
+						@Autowired
+						private NacosDateProperties nacosProperties;
+						...
+						@GetMapping("/now")
+						public String now() {
+							return new SimpleDateFormat(nacosProperties.getDateformat()).format(new Date());
+						}
+		
+		注意：
+			不是所有的配置都适合放到配置中心，维护起来比较麻烦。
+			建议将一些关键参数，需要运行时调整的参数放到nacos配置中心，一般都是自定义配置。
+
+	-> 多环境配置共享
+		场景：项目在多个环境下，不需要对每个环境都进行配置nacos配置信息，也可以创建一个多环境都会共享的配置文件<只需配置一次，环境切换不影响>。
+		微服务启动时会从nacos读取多个配置文件：
+			指定环境下的配置文件：服务名称-环境名.yaml。<例：userservice-dev.yaml>
+			多环境配置文件共享：服务名称.yaml。<例：userservice.yaml>
+		步骤：
+			1、创建nacos配置文件
+				Data ID：userservice；
+				描述：userservice的多环境共享配置
+				格式：yaml
+				配置内容：
+					pattern:
+						girlFriend: zmq
 			
+			2、读取配置信息
+				在实现热部署的配置文件中'NacosProperties.class'添加girlFriend属性。<prefix都是pattern>
+			
+			3、在controller中写一个前后端接口，用于测试配置文件正常加载输出。
+				@GetMapping("/girl")
+				public String girl(){
+					return nacosProperties.getGirlFriend();
+				}
+			
+			4、将userservice的bootstrap.yml配置文件中原有'dev'环境换成'test'环境。
+			
+			5、测试结果：
+				nacos中的userservice-dev.yaml配置文件不能在test环境下执行。
+				而userservice.yaml配合文件可以正常加载输出。<因为它是多环境共享的配置文件>
+		
+		问题：如果在dev环境中userservice-dev.yaml、userservice.yaml、本地环境application.yml中存在同名称的配置信息，三个配置文件会优先执行哪一个？
+			优先级：
+				userservice-dev.yaml(nacos环境配置) > userservice.yaml(nacos共享配置) > application.yml(项目本地配置)
+			即：
+				远程/线上配置 > 本地配置		环境配置 > 共享配置
+		
+	-> 多服务共享配置	
+		不同微服务之间可以共享配置文件。
+		方式一：
+			通过shared-configs指定
+		方式二：
+			通过extension-configs指定
+		优先级：
+			服务名-profile.yaml > 服务名称.yaml > extension-config > shared-config > 本地配置
+
+		
+-> Nacos集群搭建
+	1、搭建Mysql集群并初始化数据库表
+		Nacos默认数据存储在内嵌数据库Derby中，不属于生产可用的数据库。
+		官方推荐的最佳实践是使用带有主从的高可用数据库集群。
+		由于没有主从数据库集群，此处使用单个数据库。
+		-> 创建一个数据库
+			我没有创建数据库，直接使用旧的数据库springcloud。
+		-> 执行sql语句
+			数据表结构是由官方提供的。
+			
+	2、下载解压nacos
+		为了不破坏之前的nacos文件，此处重新下载解压nacos。
+
+	3、修改集群配置(节点信息)，数据库配置
+		进入nacos的conf目录，修改配置文件cluster.conf.example，重命名为cluster.conf。
+		cluster.conf文件中：
+			#多个nacos的ip及端口，将原有的配置删除。
+			127.0.0.1:8845
+			127.0.0.1.8846
+			127.0.0.1.8847
+		
+		application.properties文件中，添加数据库配置：
+			spring.datasource.platform=mysql
+
+			db.num=1
+
+			db.url.0=jdbc:mysql://127.0.0.1:3306/springcloud?characterEncoding=utf8&connectTimeout=1000&socketTimeout=3000&autoReconnect=true&useUnicode=true&useSSL=false&serverTimezone=UTC
+			db.user.0=root
+			db.password.0=123456
+		注意：
+			源文件中将这些注释掉了，直接放开即可。将原有数据库地址及账户密码修改掉即可。<数据库指的是第一步创建的数据库>
+		
+	4、分别启动多个nacos节点	<记得清理内存>
+		将nacos文件夹复制三份，分别命名为：nacos1、nacos2、nacos3。<想要配置一个3个节点的nacos集群>
+		在每个application.properties中配置每个nacos的端口号：
+			nacos1、nacos2、nacos3分别对应端口号：8845、8846、8847	<就是上面配置的>
+		
+		在各自的bin目录下启动nacos。
+			注意：
+				此时是集群模式启动。<1.4.1默认启动为集群模式>
+			命令：startup.cmd
+	
+	5、nginx反向代理
+		-> 下载nginx压缩包，并解压
+		-> 修改nginx.conf文件，配置如下：	<注意：将配置粘贴到http{}内即可>
+			upstream nacos-cluster {
+				server 127.0.0.1:8845;
+				server 127.0.0.1:8846;
+				server 127.0.0.1:8847;
+			}
+
+			server {
+				listen       80;
+				server_name  localhost;
+
+				location /nacos {
+					proxy_pass http://nacos-cluster;
+				}
+			}
+		
+		-> 启动nginx服务。<启动后可关闭cmd窗口>
+			直接在nginx.exe文件目录下的cmd中，执行命令：start nginx.exe
+			检查启动成功：
+				// nginx -s reopen		重启nginx，不报错说明成功
+				// nginx启动后会在logs目录下生成nginx.pid文件，停止后会自动删除。
+				// netstat -an|findstr 80	查看端口启动
+				// 步骤6，启动网页
+			
+	6、在浏览器中打开nacos的网页客户端，说明集群已经配置完成。
+	
+	7、修改之前的nacos项目
+		userservice微服务中：
+			由于之前将nacos的配置信息写到了bootstrap.yml中，所以在bootstrap中将端口号改为80端口(nginx端口)，
+		
+		orderservice没有配置bootstrap，所以在application中将nacos端口号修改为80端口号。并且将服务名改为order_service
+	
+	8、测试集群
+		在nacos网页客户端中，发布一个配置文件。<例：在配置列表中添加userservice.yaml文件>
+		发布后，查看数据库中config_info表
+			此时配置信息都保存到了我们创建的数据库当中。
+
+		
+-> http客户端Feign											<只是替换RestTemplate请求方式>
+	RestTemplate方式调用微服务资源存在的问题：
+		<上面eureka与nacos都使用RestTemplate方式>
+			String url = "http://userservice/user/" + order.getUserId();
+			User user = restTemplate.getForObject(url, User.class);
+		1、代码可读性差，编程体验不统一。
+		2、参数复杂的url难以维护<参数较多>。
+	
+	-> 介绍Feign：
+		官网：https://github.com/OpenFeign/feign
+		Feign是一个声明式的web service客户端。类似controller调用service。接口 + 注解的方式发起HTTP请求调用
+		作用：
+			帮助我们优雅的实现http请求的发送，解决RestTemplate发送方式的问题。
+			
+	-> 使用步骤：
+		1、消费者服务引入openfeign依赖
+			<!--Feign客户端依赖-->
+			<dependency>
+				<groupId>org.springframework.cloud</groupId>
+				<artifactId>spring-cloud-starter-openfeign</artifactId>
+			</dependency>
+			
+		2、开启Feign自动装配功能
+			在消费者orderservice服务的启动类上添加注解：@EnableFeignClients
+		
+		3、编写Feign客户端
+			创建clients包，定义接口UserClient
+				@FeignClient("userservice")				// 服务提供者名称
+				public interface UserClient {
+					@GetMapping("/user/{id}")
+					User fingById(@PathVariable("id") Long id);
+				}
+			
+			主要是基于SpringMVC的注解来声明远程调用的信息，比如：
+				服务名称：userservice
+				请求方式：GET
+				请求路径：/user/{id}
+				请求参数：Long id
+				返回值类型：User
+
+			注意：
+				实际上相当于RestTemplate中的：
+					String url = "http://userservice/user/" + order.getUserId();
+					User user = restTemplate.getForObject(url, User.class);
+		
+		4、调用Feign实现的请求方法
+			-> 注入接口参数
+			    @Autowired
+				private UserClient userClient;
+			-> 调用Feign实现的方法
+				// 1.查询订单
+				Order order = orderMapper.findById(orderId);
+				// 2.利用Feign发送远程请求
+				User user = userClient.fingById(order.getUserId());
+				// 3.封装User对象
+				order.setUser(user);
+				// 4.返回
+				return order;
+		
+		5、浏览器端调用controller中实现的地址
+			<feign只是消费者服务中发送给消费者服务请求，并不是改变消费者的controller请求，两者注意区分>
+		注意：
+			RestTemplate并没有负载均衡，而Feign只是替换了RestTemplate这种风格的请求方式。真正实现负载均衡的是Ribbon，它拦截请求，然后获取注册中心
+			的服务列表，并使用负载均衡算法原则一个服务的。与RestTemplate和Feign都没有关系。
+		
+	-> 自定义Feign的配置
+		1、feign.logger.Level	<作用：修改日志级别>
+			包含四种不同的级别：
+				NONE：不输出日志
+				BASIC：输出请求方法及url，响应的状态码及响应时间
+				HEADERS：输出请求和响应的头信息
+				FULL：输出请求和响应的请求头，消息体及元数据
+		
+		2、feign.codec.Decoder	<作用：响应结果的解析器>
+			http远程调用的结果做解析，例如：解析json字符串为java对象。
+			
+		3、feign.codec.Encoder	<作用：请求参数编码>
+			将请求参数编码，便于通过http请求发送。
+		
+		4、feign.Contract	<作用：支持的注解格式>
+			默认是SpringMVC的注解。
+			
+		5、feign.Retryer	<作用：失败重试机制>
+			请求失败的重试机制，默认是没有，不过会使用Ribbon的重试。
+			
+		此处介绍Feign的日志配置：
+			方式一：配置文件方式
+				分为全局生效/局部生效
+					#Feign日志配置
+					feign:
+						client:
+							config:
+								default:    #这里用default就是全局配置，如果是写服务名称，则是针对某个微服务的配置
+								#userservice:	#局部生效
+									loggerLevel: FULL     #日志级别<输出请求和响应的请求头，消息体及元数据>
+			方式二：java代码方式
+				① 创建一个Configuration类，但使用@Configuration注解，对方法添加@Bean
+					public class DefaultFeignConfig {
+						@Bean
+						public Logger.Level logLevel() {
+							return Logger.Level.BASIC;
+						}
+					}
+					<目前还没有生效>
+				
+				② 日志配置生效
+					如果是全局配置，则把它放到@EnableFeignClients这个注解中：
+						@EnableFeignClients(defaultConfiguration = DefaultFeignConfig.class) 		<启动类上的feign启动注解>
+					如果是局部配置，则把它放到@FeignClient这个注解中：
+						@FeignClient(value = "userservice", configuration = DefaultFeignConfig.class) 		<client接口中的注解>
+					注意：
+						defaultConfiguration属性值是步骤①创建的config类。
+			
+			配置结束直接在消费者服务的输出控制台查看。
+			
+	-> Feign底层实现原理
+		<学习文章：https://zhuanlan.zhihu.com/p/393053564>
+		1、基于面向接口的动态代理方式生成实现类
+			@EnableFeignClients开启扫描所有@FeignClient注解的接口，将所有的访问路径以及接口信息封装成一个FeignClientFactoryBean注册到Spring容器中。
+		2、根据接口类的注解声明规则，解析出底层MethodHandler
+		3、基于RequestBean，动态生成request
+		4、Encoder将Bean包装成请求
+		5、拦截器负责对请求和返回进行装饰处理
+		6、日志记录
+			在发送和接收请求的时候，Feign定义了统一的日志门面来输出日志信息 , 并且将日志的输出定义了四个等级：NONE、BASIC、HEADERS、FULL
+		7、基于重试器发送http请求
+			Feign内置了一个重试器，当HTTP请求出现IO异常时，Feign会有一个最大尝试次数发送请求
+		8、发送http请求
+				Feign真正发送HTTP请求是委托给feign.Client来做的。
+				Feign默认底层通过JDK的java.net.HttpURLConnection实现了feign.Client接口类,在每次发送请求的时候，都会创建新的HttpURLConnection链接，
+			这也就是为什么默认情况下Feign的性能很差的原因。可以通过拓展该接口，使用ApacheHttpClient或者OkHttp3等基于连接池的高性能Http客户端。
+				而这个client会委托给org.springframework.cloud.openfeign.ribbon.LoadBalancerFeignClient进行负载均衡地调用，采用了观察者模式。
+		
+		故：
+			核心就是通过一系列的封装和处理，将以JAVA注解的方式定义的远程调用API接口，最终转换成HTTP的请求形式，然后将HTTP的请求的响应结果，
+			解码成JAVA Bean，放回给调用者。
+			
+	-> Feign的性能优化
+		Feign底层的客户端实现：
+			HttpURLConnection：默认实现，不支持连接池
+			ApacheHttpClient：支持连接池
+			OKHttp3：支持连接池
+		优化方法：
+			1、使用连接池代替默认的HttpURLConnection
+			2、日志级别，最好使用Basic和none
+			
+		如何将默认JDK连接方式替换为连接池？
+			1、引入依赖
+				<!--feign-httpclient依赖-->
+				<dependency>
+					<groupId>io.github.openfeign</groupId>
+					<artifactId>feign-httpclient</artifactId>
+				</dependency>
+			
+			2、配置连接池与日志
+				feign:
+					#Feign日志配置
+					client:
+						config:
+							default:    #这里用default就是全局配置，如果是写服务名称，则是针对某个微服务的配置
+								loggerLevel: BASIC     #日志级别<基本的请求与响应信息>
+					#配置feign连接池
+					httpclient:
+						enabled: true     # 开启feign对httpclient的支持
+						max-connections: 200    #最大连接数
+						max-connections-per-route: 50   #每个路径的最大连接数
+		
+	-> Feign的最佳实践
+		<最好的使用方式/如何使用最好>
+		
+
+
+
+
+
+
+
+
 
 
 
