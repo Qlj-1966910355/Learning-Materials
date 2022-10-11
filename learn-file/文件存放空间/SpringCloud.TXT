@@ -915,6 +915,347 @@
 	-> Feign的最佳实践
 		<最好的使用方式/如何使用最好>
 		
+		方式一：对消费者的FeignClient和提供者的controller定义统一的父接口作为标准。
+			定义一个公共的接口，让消费者的FeignClient客户端继承这个接口，提供者的controller实现这个接口，但是不推荐这样做，因为提供者的controller实
+			现这个接口时候，参数不可继承，得再写一次，并且服务的耦合度高
+		
+		方式二：将FeignClient抽取为独立模板，并且把接口有关的pojo、默认的Feign配置都放在这个模块中，提供给所有消费者使用。
+			当存在多个消费者服务时，每个消费者都需要远程请求同一个资源，此时每个消费者服务都应该写属于自己的FeignClient接口，注意，由于它们远程资源
+			相同，所以FeignClient接口都是相同的。
+			所以，我们将所以FeignClient提取出来，统一放在一个模块(微服务)中，消费者服务想要使用FeignClient时，只需要引入入依赖，直接调用FeignClient
+			使用。
+		
+		-> 实现方式二
+			步骤：
+				1、首先创建一个module，命名feign-api，然后引入feign的starter依赖
+					只需要引入Feign客户端依赖<修改底层连接池的依赖不需要>。
+						<dependency>
+							<groupId>org.springframework.cloud</groupId>
+							<artifactId>spring-cloud-starter-openfeign</artifactId>
+						</dependency>
+					注意：继承父类服务。
+					
+				2、将orderservice中编写的UserClient、User、DefaultFeignConfig都复制到feign-api项目中
+					-> 创建包名cn.itcast.feign。
+					-> 将消费者中的FeignClient以及与它相关的实体类、配置类复制进来。
+					-> 将消费者服务中的被复制资源删除。
+					
+				3、在消费者服务中引入feign-api的依赖
+				4、修改order-service中的所有与上述三个组件有关的import部分，改成导入feign-api中的包
+				5、重启消费者服务测试<要修改扫描包位置>
+			
+			注意：
+				重启后发现出现了错误，重启服务失败。
+				在报错日志中：
+					Description:
+						Field userClient in cn.itcast.order.service.OrderService required a bean of type 'cn.itcast.feign.clients.UserClient' that
+						could not be found.
+					描述：cn.itcast.order.service中的字段userClient。OrderService需要“cn.itcast.feign.clients”类型的bean。找不到UserClient。
+				原因：
+					我们之前在定义UserClient后使用了@FeignClient注解，然后通过在启动类中添加@EnableFeignClients(开启Feign自动装配功能)，也就是扫描
+					和注册@FeignClient注解的bean。但是当我们将UserClient移到了feign-api中，此时扫描不到@FeignClient这个注解，也就没有了对应的bean。
+					注意：@EnableFeignClients扫描的是启动类所在的包的所有注解，而启动类在当前服务的cn.itcast.order中，所以肯定扫描不到@FeignClient。
+					同时在最初使用UserClient时，我们先是@Autowired注入UserClient对象(也就是@EnableFeignClients扫描到的bean对象)，但是当我们删除了
+					消费者服务中的UserClient接口时，就不能注入UserClient对象了，所以会启动错误。
+				解决：
+					方案一：
+						@EnableFeignClients既然在启动类上做配置，并且在启动类的包内进行扫描(cn.itcast.order)，我们修改包扫描范围。
+						例：
+							@EnableFeignClients(basePackages = "cn.itcast.feign.clients")		// 指定@FeignClient所在包
+					方案二：
+						@EnableFeignClients(clients = {UserClient.class})			// 直接指定@FeignClient所在类
+
+
+-> 统一网关Gateway
+	<学习网址：https://docs.spring.io/spring-cloud-gateway/docs/2.2.9.RELEASE/reference/html/#gateway-request-predicates-factories>
+	场景：
+		目前我们多个微服务可以获取数据库信息、各微服务间通讯、服务的注册发现、配置读取等，而用户只需要通过http请求进行获取服务资源。但是存在一些
+		问题：
+			1、项目存在多个微服务时，我们只想让内部用户看到特定服务，也就是说不同用户需要身份验证和权限验证。
+			2、用户请求被拦截后，网关需要通过服务路由手段判断请求的微服务到底是哪一个，同时同一个服务可能有多个实例，还需要负载均衡选择服务实例。
+			3、用户访问较多，流量如何限制
+	
+	网关的功能：
+		1、身份验证和权限校验
+		2、服务路由、负载均衡
+		3、请求限流
+		
+	SpringCloud中提供的网关分类：gateway、zuul
+		Zuul：基于Servlet实现的，属于阻塞式编程。
+		gateway：SpringCloudGateway则是基于Spring5中提供的WebFlux，属于响应式编程的实现，具备更好的性能。
+		
+	-> 请求发送流程
+		1、浏览器向网关服务发送请求：http://localhost:10010/user/1
+		2、通过路由断言判断，此时满足条件，该请求可以通过，并拼接uri为新的请求：http://userservice/user/1
+		3、拉取nacos注册中心的服务列表，多实例下通过负载均衡算法拿到一个userservice实例
+		4、根据新的请求路径获取请求资源。
+		
+	-> 路由route的组成部分
+		id：路由的id
+		uri：匹配路由的转发地址
+		predicates：配置该路由的断言，通过PredicateDefinition类进行接收设置。
+		order：路由的优先级，数字越小，优先级越高
+		Filter：过滤器，过滤一些请求并处理，满足则转发
+		
+	-> 搭建网关Geteway
+		步骤：
+			1、创建新的module(gateway服务)，引入SpringCloudGateway的依赖和nacos的服务发现依赖。
+				<!--nacos服务注册发现依赖-->
+				<dependency>
+					<groupId>com.alibaba.cloud</groupId>
+					<artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+					<version>2.2.5.RELEASE</version>
+				</dependency>
+				<!--网关geteway依赖-->
+				<dependency>
+					<groupId>org.springframework.cloud</groupId>
+					<artifactId>spring-cloud-starter-gateway</artifactId>
+				</dependency>
+	
+			2、创建启动类
+				package cn.itcast.gateway;
+				@SpringBootApplication
+				public class GatewayApplication {
+					public static void main(String[] args) {
+						SpringApplication.run(GatewayApplication.class, args);
+					}
+				}
+				
+			3、编写路由配置及nacos地址
+				#复制粘贴时可能缩进关系出现问题
+				server:
+					port: 10010   #服务端口
+				spring:
+					application:
+						name: gateway     #服务名称
+					cloud:
+						nacos:
+							server-addr: localhost:8848     #nacos地址
+						gateway:
+							routes:   #网关路由配置(可设置多个)
+								-   id: user-service    #路由id，自定义，只要唯一即可
+									#uri: http://127.0.0.1:8081   #路由的目标地址 http就是固定地址
+									uri: lb://userservice   #路由的目标地址 lb就是负载均衡(loadbalance)，后面跟服务名称
+									predicates:   #路由断言(断定，一种布尔表达式)，也就是判断请求是否符合路由规则的条件。<可设置多个>
+										-   Path=/user/**   #这个是按照路径匹配，只要以请求/user/开头就符合要求
+
+								-   id: order-service
+									uri: lb://orderservice
+									predicates:
+										-   Path=/order/**
+				注意：
+					当yml文件以2个空格为tab缩进时，'-'与字符之间就是1个空格。
+					当yml文件以4个空格为tab缩进时，'-'与字符之间就是3个空格。
+					<也就是说'-'+空格实际上就是一个tab的位置>
+
+			4、测试网关gateway
+				在浏览器中：
+					// 测试userservice的请求是否可以通过
+						http://localhost:10010/user/1
+					// 测试orderservice的请求是否可以通过
+						http://localhost:10010/order/101
+
+	-> 路由断言工厂Route Predicate Factory
+		我们在配置文件中写的断言规则只是字符串，这些字符串会被Predicate Factory读取并处理，转变为路由判断的条件。
+		例如：
+			Path=/user/**		// 按照路径匹配
+			这个规则是由org.springframework.cloud.gateway.handler.predicate.PathRoutePredicateFactory类来处理的。
+		
+		Spring提供了11种基本的Predicate工厂：
+			After			// 是某个时间点后的请求
+			Before			// 是某个时间点之前的请求
+			Between			// 是某两个时间点之前的请求
+			Cookie			// 请求必须包含某些cookie
+			Header			// 请求必须包含某些header
+			Host			// 请求必须是访问某个host(域名)
+			Method			// 请求方式必须是指定方式
+			Path			// 请求路径必须符合制定规则
+			Query			// 请求参数必须包含指定参数
+			RemoteAddr		// 请求者的ip必须是指定范围
+			Weight			// 权重处理
+		
+	-> 路由过滤器GatewayFilter
+		<https://zhuanlan.zhihu.com/p/488790949>
+		-> 生命周期
+			Spring Cloud Gateway的Filter生命周期很简单，它只有：pre 和 post 。
+
+				PRE：这种过滤器在请求被路由之前调用。可利用这种过滤器实现身份验证、在集群中选择请求的微服务、记录调试信息等。
+				POST：这种过滤器在路由到微服务后执行。可用来为响应添加标准的HTTPHeader、收集统计信息和指标、将响应从微服务发送给客户端等。
+		-> 分类
+			根据作用范围：GatewayFilter与GlobalFilter。
+			局部过滤器(GatewayFilter)：
+				针对单个路由的过滤器，对访问的URL过滤，切面处理。在Spring Cloud Gateway中通过GatewayFilter的形式内置了很多不同类型的局部过滤器。
+			全局过滤器(GlobalFilter)：
+				用于所有的路由，可以通过自定义实现自己的GlobalFilter。通过全局过滤器实现对所有请求的的统一校验。
+			默认过滤器：
+				通过配置文件来配置，对所有的请求和响应做过滤
+				
+		-> 存在多个过滤器时执行顺序
+			请求进入网关存在上面三种过滤器。
+			请求路由后(请求路由后才知道有哪些过滤器存在于网关中)，会将三种过滤器合并到一个过滤器链(集合)中，排序后依次执行每个过滤器。
+				1、当配置order参数时
+					<全局过滤器可以实现Ordered接口或者使用@Order注解，默认过滤器和路由过滤器默认按照配置的顺序从上到下从1依次递增>
+					过滤器会按照order值从小到大的顺序依次执行过滤。
+				2、当过滤器的order值一样或者没有配置order时
+					(defaultfilters)默认过滤器 > 路由过滤器(GatewayFilter) > 全局过滤器(GlobalFilter)	由大到小顺序执行
+					注意：
+						对于：
+							default-filters:        # 默认过滤器，会对所有的路由请求都生效
+								-	AddRequestHeader=Zmq, zmq nb!!		// 先声明为 order=1
+								-	AddRequestHeader=Qlj, qlj nb!!		// 后声明递增 order+=1
+						实际上路由过滤器与默认过滤器的order未指定时由Spring指定的，默认是按照声明顺序从1递增，也就是说先声明先执行
+
+		-> Spring中提供了31种不同的路由过滤器工厂。<具体配置实现在官网上可以查看>
+			1、AddRequestHeader：给当前请求请求添加一个请求头
+			2、AddResponseHeader：给响应结果中添加一个响应头
+			3、RemoveRequestHeader：移除请求中的一个请求头
+			4、RemoveResponseHeader：从响应结果中移除一个响应头
+			5、RequestRateLimiter：限制请求的流量
+			......
+			
+			-> 局部过滤器
+				给进入userservice的请求添加一个请求头<局部过滤器>
+					实现：在gateway服务中修改application.yml文件
+						# AddRequestHeader给所有请求添加一个请求头<没有添加路由断言>
+						spring:
+							cloud:
+								gateway:
+									routes: # 网关路由配置
+										-   id: add_request_header_route
+											uri: lb://userservice
+											predicates:
+												-   Path=/**
+											filters:
+												-   AddRequestHeader=QLJ, niubi!
+						注意：一个请求不能存在于两个route中。<否则只会进入最上面的那个>
+					验证：
+						在uri对应的userservice服务的请求上添加请求头获取参数。
+							@GetMapping("/{id}")
+							public User queryById(@PathVariable("id") Long id, 
+													// value：请求头名称<对应filters参数>；
+													// required：false 如果存在就传递，不存在就不传递
+												  @RequestHeader(value = "Qlj", required = false) String reqHead) {
+								System.out.println(reqHead);
+								return userService.queryById(id);
+							}
+					
+			-> 默认过滤器
+				对所有路由都生效的过滤器。<通过配合文件进行设置>
+					spring:
+						cloud:
+							gateway:
+								routes:
+								-   id: user-service    #路由id，自定义，只要唯一即可
+									uri: lb://userservice
+									predicates:
+										-   Path=/user/**
+									filters:
+										-   AddRequestHeader=Qlj, qlj nb!!
+
+								-   id: order-service
+									uri: lb://orderservice
+									predicates:
+										-   Path=/order/**
+								default-filters:        # 默认过滤器，会对所有的路由请求都生效
+									- AddRequestHeader=Zmq, zmq nb!!
+				注：default-filters对userservice与orderservice的请求都进行过滤。
+
+			-> 全局过滤器
+				全局过滤器的作用也是处理一切进入网关的请求和微服务响应，与默认过滤器的作用一样。
+				区别在于默认过滤器是通过配置定义，处理逻辑是固定的。而全局过滤器的逻辑需要自己定义类实现。
+				实现方式：
+					必须实现GlobalFilter接口。
+					源码：
+						public interface GlobalFilter {
+							/*
+								exchange：请求上下文，里面可以获取Request、Response等信息。<从请求进入网关到结束为止，整个过程共享该对象>
+								chain：用来把请求委托给下一个过滤器
+								return：返回标示当前过滤器业务结束
+							*/
+							Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain);
+						}
+				
+				实现：
+					需求：定义全局过滤器，拦截请求，判断请求的参数是否满足下面的条件：
+						1、参数中是否有authorization
+						2、authorization参数值是否为admin
+						如果同时满足则放行，否则拦截。
+						
+					代码：
+						// 登录认证
+						@Order(-1)  // 越小优先级越高<也可以多实现一个Order接口>
+						@Component
+						public class AuthorizeFilter implements GlobalFilter {
+							@Override
+							public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+								// 1.获取请求参数
+								ServerHttpRequest request = exchange.getRequest();      // 与servlet中的request不同
+								MultiValueMap<String, String> params = request.getQueryParams();    // key:参数名称，value:对应值
+								// 2.获取参数中的 authorization 参数
+								String auth = params.getFirst("authorization");
+								// 3.判断参数值是否等于admin
+								if ("admin".equals(auth)) {
+									// 4.是，放行
+									return chain.filter(exchange);     // 当调用filter()时，实际是从过滤器链中获取下一个过滤器
+								}
+								// 5.否，拦截
+								// 5.1.设置状态码<直接拦截返回时没有任何结果，一般会设置状态码>
+								exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);		// UNAUTHORIZED：401错误
+								// 5.2.拦截请求
+								return exchange.getResponse().setComplete();
+							}
+						}
+						
+					测试：
+						重启gateway服务。
+						发送请求：http://localhost:10010/user/1
+							<此时发现访问报错，401错误，需要验证用户>
+						重新发送：
+							http://localhost:10010/user/1?authorization=admin	// 响应成功
+	
+	-> 网关的跨域问题处理
+		跨域：域名不一致。
+			域名不一致：www.qljweb.com、www.qljweb.org、www.zmqweb.com等，它们的域名都不同。
+			域名相同，端口不同：localhost:8080、localhost:8081
+			
+		注意：
+			此前，我们userservice与orderservice的端口号不同时，完全可以进行互相通讯访问，完全没有问题。
+			跨域问题是指浏览器禁止请求的发起者与服务端发生跨域ajax请求，请求被浏览器拦截的问题。
+			具体可前往AJAX文档查看。
+		
+		解决方案：
+			// CORS方案
+				spring:
+				  cloud:
+					gateway:
+					  globalcors: # 全局的跨域处理
+						add-to-simple-url-handler-mapping: true # 解决options请求被拦截问题
+						corsConfigurations:
+						  '[/**]':
+							allowedOrigins: # 允许哪些网站的跨域请求
+							  - "http://localhost:8090"
+							  - "http://www.leyou.com"
+							allowedMethods: # 允许的跨域ajax的请求方式
+							  - "GET"
+							  - "POST"
+							  - "DELETE"
+							  - "PUT"
+							  - "OPTIONS"
+							allowedHeaders: "*" # 允许在请求中携带的头信息
+							allowCredentials: true # 是否允许携带cookie
+							maxAge: 360000 # 这次跨域检测的有效期
+
+
+-> Docker
+	
+			
+				
+
+
+
+
+
+
 
 
 
