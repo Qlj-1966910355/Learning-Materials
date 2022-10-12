@@ -1,0 +1,347 @@
+-> 简述
+	-> 项目部署问题
+		大型项目组件较多，运行环境也较为复杂，整个项目运行要开启很多服务，同时部署也会很麻烦。
+			<依赖关系复杂，容易出现兼容性问题>
+			<开发、测试、生产环境存在差异>
+		
+			例：node.js、redis、mysql、nginx等
+			存在问题：
+				1、
+				在linux系统：最底层由计算机硬件构成，上层时linux的内核，内核上是不同的操作系统(centos、乌班图等)，而多个项目组件/服务运行在操作系统上。
+				每个不同的服务会使用操作系统中的一些函数库/依赖(用于交互)，这些服务使用的函数库可能相同，也可能不同，这样就会导致一些兼容性问题。
+				2、
+				同时，即使都是linux操作系统，但是只是linux内核一样，而其操作系统不同(centos、乌班图等)，不同的操作系统的函数库也都不尽相同。所以在一个
+				操作系统中配置并部署好了环境，但是在另外一个linux操作系统中就不能正常运行
+		
+		-> Docker怎样解决依赖兼容性问题？
+			根本问题：每个项目的服务都要自己对应的操作系统函数库。
+			方案：
+				// 将应用/服务所需对应的操作系统函数库、依赖、配置和服务一起打包，形成一个整体
+				// 将每个应用放在一个隔离容器中去运行，避免互相干扰<沙箱技术>
+			<此时，之前的服务就变成了：服务+函数库+依赖等>
+			注意：
+				当前解决方案只限于一种linux操作系统中，如果换一种linux操作系统，那么打包的函数库/依赖等环境资源就不能用了，因为不同种类的linux操作系统
+				函数库/依赖等运行环境资源都不同。
+			
+		-> 为什么项目不能跨系统运行？
+			先来看看操作系统的结构。
+				最底层：计算机硬件
+				中间层：linux内核
+					<通过简单的命令直接与硬件交互>
+				系统操作应用：centos、乌班图等
+					<封装linux的命令，形成函数库，直接调用函数执行一些命令>
+				最上面：安装的其他程序应用
+			注意：
+				操作系统应用不同，但是其linux的内核是完全相同的。
+			现在我们来看看为什么不能跨系统运行：
+				由于操作系统不同(例：centos、乌班图等)，所以它们自身即使处理的是一样的事情，但是各自封装实现的函数库不同。
+				所以项目运行时，服务需要的函数库会根据操作系统不同而发生改变。
+			
+		-> Docker怎样解决不同系统环境问题(跨系统)？
+			方案：
+				<直接与linux内核交互>
+				docker将用户项目程序与所需要调用的系统函数库一起打包，然后docker运行到不同操作系统时，直接基于打包的函数库与linux内核交互。
+				所以根本不需要管是什么操作系统，只要内核一样就行。
+			
+	-> 虚拟机与Docker的区别
+		虚拟机：
+			虚拟机是在操作系统中模拟硬件设备(Hypervisor)，然后运行另一个操作系统，比如在windows系统中运行centos系统。
+			性能：性能较差
+			硬盘占用：一般很大，GB级别。
+		Docker：
+			容器内的应用直接运行在宿主机的内核上，容器是没有自己的内核的，也没有我们的硬件，所以就轻便很多。
+			每个容器是相互隔离的，每个容器内都有一个属于自己的文件系统，互不隔离。
+			性能：接近原生操作系统操作硬件。
+			硬盘占用：一般只是MB级别
+	
+	-> Docker的组成结构
+		<我们已经知道，Docker结构中执行项目的某个服务时，是将一些操作系统的函数库、依赖等一起打包，形成独立的环境，然后直接与操作系统内核进行交互。>
+		1、镜像(Image)：
+			镜像是一个包含有文件系统的面向Docker引擎的只读模板。任何应用程序运行都需要环境，而镜像就是用来提供这种运行环境的。
+			注意：镜像是不可被修改的，是只读的。也可以说是静态的、可以被用户互相分享的文件，只能pull别人的镜像或者push自己的镜像。
+			
+		2、容器(Container)：
+			容器是镜像创建的应用实例，可以创建、启动、停止、删除容器，各个容器之间是是相互隔离的，互不影响。<镜像启动起来就是容器，可多实例>
+			可以将其看作一个极简的Linux系统环境（包括root权限、进程空间、用户空间和网络空间等），以及运行在其中的应用程序。Docker引擎利用容器来运
+		行、隔离各个应用。
+			与虚拟机通过操作系统实现隔离不同，容器技术只隔离应用程序的运行时环境但容器之间可以共享同一个操作系统，这里的运行时环境指的是程序运行依
+		赖的各种库以及配置。
+		
+		3、仓库(Repository)：
+			仓库是Docker用来集中存放镜像文件的地方。就像是git代码仓库一样，可以pull与push操作。
+			仓库是存放镜像的地方，一般每个仓库存放一类镜像，每个镜像利用tag进行区分。如triton仓库存放多个版本的triton镜像。
+			-> DockerHub
+				它是一个Docker镜像的托管平台。也称作Docker Registry。可以pull与push操作。
+				国内有类似于DockerHub的公开服务，如阿里云镜像服务、网页云镜像服务等。
+				
+	-> Docker的架构
+		如何通过Docker完成镜像构建，或者是拉取镜像并运行？
+		Docker是一个CS架构程序，有客户端与服务端：
+			服务端：Docker守护线程，负责处理Docker指令，管理镜像、容器等。
+			客户端：通过命令或RestAPI向Docker服务端发送指令。可以在本地或远程向服务端发送指令。
+				本地就是使用命令。远程就是RestAPI方式。
+		
+		Docker镜像构建：
+			1、docker build
+				当我们写好一个服务后并完成dockerfile的构建，此时就需要交给docker进行'编译'，该命令就是用于编译。
+				客户端在本地发送命令，服务端接收后将dockerfile编译创建出一个'镜像'Image。
+			
+			2、docker pull
+				如果是已经存在的服务，例如nginx，这种程序一般在网上已经被编译好，形成了一个nginx的镜像了，我们只需要对docker服务器发送pull命令，
+				服务器就会在docker registry下载镜像文件到本地。
+			
+			3、docker run
+				有了镜像文件(可执行文件)后，使用该命令后，服务器会找到对应的镜像然后执行，执行起来就形成了应用实例container(容器)。
+				
+				
+-> Docker下载、安装、启动
+	Docker分为CE和EE两大版本。CE即社区版(免费，支持周期7个月)，EE即企业版，强调安全，付费使用，支持周期24个月。
+	
+	Docker CE支持64位版本CentOS7，并且要求内核版本不低于3.10，CentOS7满足最低要求。
+	
+	-> 卸载
+		避免系统安装过Docker。
+		yum remove docker \
+					docker-client \
+					docker-client-latest \
+					docker-common \
+					docker-latest \
+					docker-latest-logrotate \
+					docker-logrotate \
+					docker-engine \
+					docker-selinux \
+					docker-engine-selinux \
+					docker-ce
+
+	-> 下载安装docker
+		1、首先安装yum-utils工具。
+			yum install -y yum-utils \
+				device-mapper-persistent-data \
+				lvm2 --skip-broken
+		2、更新本地镜像源<官方原地址比较慢>
+			yum-config-manager \
+				--add-repo \
+				https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+				
+			sed -i 's/download.docker.com/mirrors.aliyun.com\/docker-ce/g' /etc/yum.repos.d/docker-ce.repo
+
+			yum makecache fast
+		3、
+			yum install -y docker-ce		// ce就是指社区版
+		
+	-> 启动Docker
+		Docker应用需要用到各种端口，逐一去修改防火墙设置。非常麻烦，因此建议直接关闭防火墙！
+		1、关闭防火墙
+			# 关闭
+				systemctl stop firewalld
+			# 禁止开机启动防火墙
+				systemctl disable firewalld
+		2、docker服务操作
+			// 启动docker服务
+				systemctl start docker 
+			// 停止docker服务
+				systemctl stop docker
+			// 重启docker服务
+				systemctl restart docker
+				
+			// 查看docker版本信息
+				docker -v
+		
+		3、配置镜像加速
+			docker官方镜像仓库网速较差，我们需要设置国内镜像服务
+			阿里云的镜像加速文档：https://cr.console.aliyun.com/cn-hangzhou/instances/mirrors
+			命令：
+				// 创建一个docker目录
+				sudo mkdir -p /etc/docker
+				// 新建daemon.json，给文件中写入镜像地址
+				sudo tee /etc/docker/daemon.json <<-'EOF'
+				{
+				  "registry-mirrors": ["https://p3tzdrm1.mirror.aliyuncs.com"]
+				}
+				EOF
+				// 重新加载daemon文件
+				sudo systemctl daemon-reload
+				// 重启docker
+				sudo systemctl restart docker
+		
+
+-> 镜像相关命令
+	镜像名称:
+		repository:[tag]			例：mysql:5.7
+	注意：
+		如果没有指定tag时，默认是latest，代表最新版本的镜像。
+		
+	-> 镜像增删查命令
+		// 查看镜像
+			docker images
+		// 获取镜像<从镜像服务器pull>
+			docker pull
+		// 获取镜像<从本地dockerfile>
+			docker build
+		// 删除镜像
+			docker rmi
+		// 推送镜像<推送到镜像服务器中>
+			docker push
+		// 压缩镜像<压缩为一个文件>
+			docker save
+		// 加载压缩包为镜像
+			docker load
+		// 查看docker所有命令
+			docker --help
+		// 查看指定命令的使用方法
+			docker 命令 --help
+			
+		注意：上面命令后面跟镜像名称。
+
+		-> 案例：
+			从dockerhub官方镜像库中获取nginx镜像。
+			<网址：https://hub.docker.com/>		账户：邮箱	密码：q134...
+			1、进入dockerhub搜索nginx，查看版本。
+			2、执行命令
+				docker pull nginx		// 没有加版本号，默认拉取最新版
+			3、查看是否拉取成功
+				docker images
+			4、压缩为一个文件<默认存放在当前操作目录下>
+				docker save -o nginx.tar nginx:latest			// nginx.tar：压缩文件名	nginx:latest：镜像名称<tar可以看镜像信息>
+			5、删除nginx镜像
+				docker rmi nginx:latest
+			6、解压nginx
+				docker load -i nginx.tar
+		
+	-> 镜像启动运行相关命令	
+		1、镜像启动
+			docker run							// 启动后就会生成一个容器
+		
+		2、容器相关命令
+			// 状态切换
+				// 运行状态 ---> 暂停状态
+					docker pause
+				// 暂停状态 ---> 运行状态
+					docker unpause
+				// 运行状态 ---> 停止状态
+					docker stop
+				// 停止状态 ---> 运行状态
+					docker start
+			// 删除容器
+				docker rm				// 不仅仅是进程与内存回收，包括硬盘的相关文件系统
+			// 查看容器运行日志
+				docker logs
+			// 查看所有运行的容器及状态
+				docker ps [-a]		// -a：表示查看所有容器，默认查看运行中的容器
+			// 进入容器执行命令
+				docker exec
+			// 退出容器
+				exit		// linux命令
+			// 修改容器名称
+				docker rename oldName newName
+				
+		-> 案例1：创建一个nginx容器
+			1、进入dockerhub搜索nginx，查看容器运行命令版本。
+				例：docker run --name mn -p 80:80 -d nginx
+					解读：
+						mn：容器名称
+						-p：将宿主机端口与容器端口映射，冒号左侧时宿主机端口，右侧是容器端口
+							<我们知道用户想要访问容器是不被允许的，因为容器是被对外隔离的，任何请求不允许访问。
+							映射作用就是先将请求发送给映射端口的宿主机，宿主机通过映射端口转发给容器>
+						80:80：宿主机端口可以由自己指定<不冲突即可>，右侧容器端口不能修改，除非修改了本身配置文件的端口号。
+						-d：后台运行，不加-d就是前台运行，不能关闭前台控制台。
+						nginx：镜像名称，不写版本就是最新版本
+						
+			2、查看运行状态
+				docker ps
+			3、使用宿主机访问是否开启
+				宿主机时linux系统上：ip=192.168.10.128
+				在windows浏览器中：192.168.10.128:80
+					显示：Welcome to nginx!
+		
+		-> 案例2：进入nginx容器，修改html文件内容
+			1、进行容器。
+				docker exec -it mn bash
+				解读：
+					-it：给当前进入的容器创建一个标准输入、输出端口，允许我们与容器交互
+					mn：要进入的容器名称
+					bash：进入容器后执行的命令，bash是一个linux终端交互命令
+				注意：
+					进入容器后，相当于进入了一个小型linux系统<被阉割版>，所以一些linux命令依然可以使用。
+			2、在dockerhub的nginx镜像介绍内容中，查找容器内nginx的安装目录。
+				nginx目录index.html文件位置：/usr/share/nginx/html
+				cd /usr/share/nginx/html
+			3、查看并修改index.html文件
+				ls
+				cat index.html
+				由于容器中没有vi/vim命令包，所以用以下方式进行修改：
+					命令：
+						sed -i 's#Welcome to nginx#屈刘杰牛逼......#g' index.html
+						sed -i 's#<head>#<head><meta charset="utf-8">#g' index.html			// 支持中文
+			4、查看是否修改成功
+				cat index.html
+				浏览器中：192.168.10.128:80
+			5、退出容器
+				exit
+			6、停止运行的mn容器
+				docker stop mn
+			7、查看mn是否还在运行
+				docker ps
+			
+		-> 案例3：创建redis容器并使用
+			1、运行redis镜像
+				docker run --name mr -p 6379:6379 -d redis redis-server --appendonly yes
+			2、打开RESP界面客户端，连接linux的地址。
+			3、查看容器运行
+				docker ps
+			4、进入redis容器
+				docker exec -it mr bash		也可以一步到位执行redis命令行客户端：docker exec -it mr redis-cli		// 跳过步骤5
+			5、进入redis命令行客户端
+				直接执行命令：redis-cli
+			6、操作redis
+				keys *
+				select 0
+				set name qlj
+			7、刷新RESP客户端连接，发现第一个数据库中存在name:qlj键值对。
+			8、退出redis命令行客户端
+				exit
+			9、退出容器
+				exit
+			注意：虽然退出了容器，但是redis服务还没有停。
+			10、停止容器运行
+				docker stop mr
+		
+		
+-> 数据卷
+	目前存在问题：
+		1、不便于修改
+			当需要修改某个服务的文件内容时，例nginx的index.html文件，需要进入容器，很不方便。
+		2、数据不可复用
+			在容器内的修改对外是不可见的。所有修改对新创建的容器都是不可复用的。
+		3、升级维护困难
+			数据在容器内，如果要升级容器必然要删除旧的容器，这样所有服务数据跟着也会被删除。
+	
+	
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		

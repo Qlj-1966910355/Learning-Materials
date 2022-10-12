@@ -821,7 +821,7 @@ Linux
 		使用systemctl管理服务：
 			上面管理服务的指令低版本可以使用，高版本使用systemctl。
 			1、systemctl指令
-				systemctl 服务名 [start|stop|restart|status]
+				systemctl [start|stop|restart|status] 服务名
 				这种关闭启动服务，服务器重启就会失效，且受限于防火墙<先关闭防火墙服务>。
 			
 			2、查看服务
