@@ -126,7 +126,7 @@
 			sed -i 's/download.docker.com/mirrors.aliyun.com\/docker-ce/g' /etc/yum.repos.d/docker-ce.repo
 
 			yum makecache fast
-		3、
+		3、安装社区版docker
 			yum install -y docker-ce		// ce就是指社区版
 		
 	-> 启动Docker
@@ -139,6 +139,8 @@
 		2、docker服务操作
 			// 启动docker服务
 				systemctl start docker 
+			// 查看docker是否启动
+				systemctl status docker
 			// 停止docker服务
 				systemctl stop docker
 			// 重启docker服务
@@ -201,7 +203,7 @@
 				docker pull nginx		// 没有加版本号，默认拉取最新版
 			3、查看是否拉取成功
 				docker images
-			4、压缩为一个文件<默认存放在当前操作目录下>
+			4、压缩为一个文件<默认存放在当前操作目录下，/etc/docker/>
 				docker save -o nginx.tar nginx:latest			// nginx.tar：压缩文件名	nginx:latest：镜像名称<tar可以看镜像信息>
 			5、删除nginx镜像
 				docker rmi nginx:latest
@@ -282,6 +284,8 @@
 				docker stop mn
 			7、查看mn是否还在运行
 				docker ps
+			8、重新启动被停止的容器
+				docker start mn
 			
 		-> 案例3：创建redis容器并使用
 			1、运行redis镜像
@@ -307,7 +311,7 @@
 				docker stop mr
 		
 		
--> 数据卷
+-> 数据卷(volume)
 	目前存在问题：
 		1、不便于修改
 			当需要修改某个服务的文件内容时，例nginx的index.html文件，需要进入容器，很不方便。
@@ -316,31 +320,503 @@
 		3、升级维护困难
 			数据在容器内，如果要升级容器必然要删除旧的容器，这样所有服务数据跟着也会被删除。
 	
+	-> 概述
+		卷就是目录或文件，存在于一个或多个容器中，由docker挂载到容器，但不属于联合文件系统，因此能够绕过Union File System提供一些用于持续
+		存储或共享数据的特性：
+			卷的设计目的就是数据的持久化，完全独立于容器的生存周期，因此Docker不会在容器删除时删除其挂载的数据卷。
+			卷的概念不仅解决了数据持久化的问题，还解决了容器间共享数据的问题。
+			使用卷可以将容器内的目录或文件持久化，当容器重启后保证数据不丢失。
+		
+		数据卷特点：
+			数据卷可在容器之间共享或重用数据
+			卷中的更改可以直接实时生效，爽
+			数据卷中的更改不会包含在镜像的更新中
+			数据卷的生命周期一直持续到没有容器使用它为止
+			
+		数据卷分类：
+			1、宿主机数据卷：直接在宿主机的文件系统中但是容器可以访问（bind mount）
+			2、命名的数据卷：磁盘上Docker管理的数据卷，但是这个卷有个名字。
+			3、匿名数据卷：磁盘上Docker管理的数据卷，因为没有名字想要找到不容易，Docker来管理这些文件。
+			<数据卷其实都在（如果没有网络文件系统等情况下）宿主机文件系统里面的，只是第一种是在宿主机内的特定目录下，而后两种则在docker管理的目录下，
+			这个目录一般是 /var/lib/docker/volumes/>
 	
+	-> 数据卷基本操作
+		命令：
+			docker volume [command]
+		详解command：
+			create：创建一个volume(数据卷)
+			inspect：显示一个或多个volume的信息
+			ls：列出所有的volume
+			prune：删除未使用的volume
+			rm：删除一个或多个指定的volume
+		
+		-> 案例：创建一个数据卷(html)，查看数据卷在宿主机的目录位置
+			1、创建数据卷
+				docker volume create html
+			2、查看已创建数据卷
+				docker volume ls
+			3、查看数据卷创建位置
+				docker volume inspect html		// Mountpoint：挂载点
+			4、删除数据卷
+				// 删除未使用的数据卷
+					docker volume prune	--> y
+				// 删除指定数据卷
+					docker volume rm html
+		
+	-> 数据卷挂载相关命令
+		// 挂载数据卷
+			创建容器时进行挂载：
+				docker run --name mn -v html:/usr/share/nginx/html -p 80:80 -d nginx
+				解读：
+					-v html:/usr/share/nginx/html：冒号左边是宿主机的数据卷名称，右边是容器内的文件目录名称。
+						<把html数据卷挂载到容器内的/usr/share/nginx/html这个目录中>
+				注意：
+					// 容器目录名不知道可以在dockerhub上查看镜像创建容器后的目录结构。
+						例：nginx的html目录在：/usr/share/nginx/html
+					// 如果不事先创建数据卷，直接创建容器并挂载数据卷，则创建容器时会自动创建数据卷并挂载。
+		
+		案例：创建nginx容器挂载数据卷，并修改容器内index.html内容
+			1、删除之前创建的mn容器，删除后容器内一切修改都会删除
+				docker rm mn
+			2、创建容器并挂载html数据卷
+				docker run --name mn -v html:/usr/share/nginx/html -p 80:80 -d nginx
+			3、修改html文件
+				docker exec -it mn bash			// 进入容器
+				cd /usr/share/nginx/html
+				cat index.html
+				// 修改html内容
+					sed -i 's#Welcome to nginx#屈刘杰牛逼......#g' index.html
+					sed -i 's#<head>#<head><meta charset="utf-8">#g' index.html			// 支持中文
+			4、查看是否修改成功
+				网页：192.168.10.128:80
+			5、退出容器，查看数据卷中是否修改成功
+				exit		// 退出容器
+				docker volume inspect html		// 查看数据卷目录位置
+				cd /var/lib/docker/volumes/html/_data		// 跳转到数据卷位置
+				ls		// 查看数据卷目录下是否已经包含文件
+			6、通过xftp将数据卷内的html打开，通过高级应用打开html文件，进行修改
+			7、修改完成后，传入数据卷目录中替换掉之前版本的html文件即可。
+			8、验证容器中的html文件是否也同步修改
+				// 192.168.10.128:80
+				// 进入容器内查看
+				
+	-> 宿主机目录/文件挂载到容器
+		目录挂载与数据卷挂载语法类似：
+			-v [宿主机目录]:[容器内目录]
+			-v [宿主机文件]:[容器内文件]
+		
+		例：创建并运行一个mysql容器，将宿主机目录直接挂载到容器
+			1、获取mysql镜像
+				由于dockerhub获取较慢，此处使用事先准备好的mysql.tar压缩包。
+				压缩包存放位置：/etc/docker/
+				命令：docker load -i mysql.tar		// 解压为mysql镜像
+			
+			2、创建宿主机目录
+				data目录：mkdir /tmp/mysql/data
+				config目录：mkdir /tmp/mysql/cofig
+				将hmy.cnf配置文件上传到conf目录内。
+			
+			3、创建mysql容器
+				docker run \
+					--name mysql \											#容器名称
+					-e MYSQL_ROOT_PASSWORD=123456 \							#root账户密码
+					-p 3306:3306 \											#端口号映射
+					-v /tmp/mysql/conf/hmy.cnf:/etc/mysql/conf.d/hmy.cnf \	#宿主机文件挂载
+					-v /tmp/mysql/data:/var/lib/mysql \						#宿主机目录挂载
+					-d \													#后台运行容器
+					mysql:5.7.25											#镜像名称
+					
+							<删除tab后，用于复制>
+							docker run \
+								--name mysql \
+								-e MYSQL_ROOT_PASSWORD=123456 \
+								-p 3306:3306 \
+								-v /tmp/mysql/conf/hmy.cnf:/etc/mysql/conf.d/hmy.cnf \
+								-v /tmp/mysql/data:/var/lib/mysql \
+								-d \
+								mysql:5.7.25
+	
+			4、测试连接
+				此时宿主机上创建的data目录中已经有内容了。
+				打开Navicat连接测试。
+		
+	-> 对比数据卷与宿主机文件/目录挂载的区别
+		数据卷
+			优点：
+				创建数据卷不需要关心数据卷目录的存放位置，完全交由docker进行管理
+			缺点：
+				数据卷隐藏了数据卷目录的创建过程，需要使用命令找到数据卷位置，比较麻烦。
+		宿主机目录/文件挂载
+			优点：
+				用户直接在宿主机上创建目录与文件，查看目录文件方便
+			缺点：
+				创建目录过程麻烦，不被docker管理。
 		
 		
+-> 自定义镜像
+	前面的镜像都是由dockerhub上拉取，或者下载的tar压缩包，然后创建的镜像。
+	<自定义镜像就是将自己的项目封装成镜像，然后交由docker管理>
+	
+	-> 镜像的结构
+		<镜像是将应用程序以及其需要的系统函数库、环境、配置、依赖等打包而成>
+		分层结构：
+			基础镜像 ---> 层 ---> 镜像入口
+		解读：
+			基础镜像(Baselmage)：应用依赖的系统函数库、环境、配置、文件等。
+			层(Layer)：在Baselmage基础上添加安装包、依赖、配置等，每次操作都形成新的一层。
+			镜像入口(Entrypoint)：镜像运行入口，一般是程序启动的脚本和参数。
+		注意：
+			由基础镜像系统函数库等开始逐层向上构建的原因是因为函数的调用、依赖关系等都是由先后顺序的，所以必须一层一层进行构建。
+			而分层还有另外一个优点：逐层构建时，当项目/服务需要升级更新时，不需要推翻之前的镜像结构，只需要修改对应层中的内容，方便更新，提高复用性。
 		
+	-> Dockerfile
+		Dockerfile是一个文本文件，其中包含一个个的指令，用指令来说明要执行什么操作来构建镜像。每一个指令都会形成一层Layer。
+		<指令详解：https://docs.docker.com/engine/reference/builder/>
+		指令：
+			// from	
+				<指定基础镜像>	例：from centos:7
+			// env
+				<设置环境变量，可在后面指令使用>	例：env key value
+			// copy
+				<拷贝本地文件到镜像的指定目录>	例：copy ./mysql-5.7.rpm /tmp
+			// run
+				<执行linux的shell命令，一般是安装过程的命令>	例：run yum install gcc
+			// expose
+				<指定容器运行时监听的端口，是给镜像使用者看的>	例：expose 8080
+			// entrypoint
+				<镜像中应用的启动命令，容器运行时调用>	例：entrypoint java -jar xxx.jar
+	
+		案例1：基于Ubuntu镜像构建一个新镜像，运行一个java项目
+			<centos的基础函数库较为冗余，所以下面使用Ubuntu>
+			步骤：
+				1、新建一个空的文件夹/tmp/docker-demo
+				2、将资料上传到docker-demo目录内。
+					docker-demo.jar：项目执行jar包
+					Dockerfile：创建镜像的步骤命令集
+					jdk8.tar.gz：jdk环境
+				3、进入docker-demo目录中查看上传是否成功
+					cd /tmp/docker-demo
+				4、查看Dockerfile文件
+					cat Dockerfile
+					内容：
+						# 指定基础镜像
+						FROM ubuntu:16.04
+						# 配置环境变量，JDK的安装目录
+						ENV JAVA_DIR=/usr/local
+
+						# 拷贝jdk和java项目的包
+						COPY ./jdk8.tar.gz $JAVA_DIR/
+						COPY ./docker-demo.jar /tmp/app.jar
+
+						# 安装JDK
+						RUN cd $JAVA_DIR \
+						 && tar -xf ./jdk8.tar.gz \
+						 && mv ./jdk1.8.0_144 ./java8
+
+						# 配置环境变量
+						ENV JAVA_HOME=$JAVA_DIR/java8
+						ENV PATH=$PATH:$JAVA_HOME/bin
+
+						# 暴露端口
+						EXPOSE 8090
+						# 入口，java项目的启动命令
+						ENTRYPOINT java -jar /tmp/app.jar
+						
+				5、运行Dockerfile文件的命令集
+					docker build -t javaweb:1.0 .
+					解读：
+						build：加载执行Dockerfile命令集
+						-t javaweb:1.0：创建镜像的名称与版本号
+						.：指当前目录下的Dockerfile文件。注意：当前目录必须存在Dockerfile文件。
+				6、测试镜像创建成功
+					docker images
+					此时镜像javaweb:1.0已经存在。
+				7、创建容器
+					docker run --name web -p 8090:8090 -d javaweb:1.0
+				8、查看容器创建
+					docker ps
+				9、测试项目部署成功
+					浏览器中输入：192.168.10.128:8090/hello/count
+				
+		案例2：
+			上面构建自定义镜像较为繁琐。
+			在Dockerfile文件中我们可以看到：
+				实际上真正部署项目的命令并不多，主要是在创建与部署Ubuntu以及jdk，然而我们的项目部署都是需要系统函数库与jdk的，这些属于公共部分。
+			所以，修改Dockerfile文件：
+				多行注释中属于公共部分。
+					/* 
+						# 指定基础镜像
+						FROM ubuntu:16.04
+						# 配置环境变量，JDK的安装目录
+						ENV JAVA_DIR=/usr/local
+
+						# 拷贝jdk和
+						COPY ./jdk8.tar.gz $JAVA_DIR/
+						
+
+						# 安装JDK
+						RUN cd $JAVA_DIR \
+						 && tar -xf ./jdk8.tar.gz \
+						 && mv ./jdk1.8.0_144 ./java8
+
+						# 配置环境变量
+						ENV JAVA_HOME=$JAVA_DIR/java8
+						ENV PATH=$PATH:$JAVA_HOME/bin
+					*/
+					
+					#将公共部分替换为下面一行
+					FROM java:8-alpine
+					
+					#拷贝java项目的包
+					COPY ./docker-demo.jar /tmp/app.jar
+
+					# 暴露端口
+					EXPOSE 8090
+					# 入口，java项目的启动命令
+					ENTRYPOINT java -jar /tmp/app.jar
+			
+			步骤：
+				1、将修改后的Dockerfile文件上传替换服务器上的Dockerfile文件。
+				2、重新构建一个新的镜像
+					docker build -t javaweb:2.0 .
+				3、重新创建新的容器。<可以删掉之前javaweb:1.0的容器>
+					docker run --name web -p 8090:8090 -d javaweb:2.0		
+					注意：端口号不能重复，如果没有删除之前的容器，就要修改端口号
+			
+
+
+
+
+-> DockerCompose
+	// DockerCompose
+		DockerCompose可以基于Compose文件帮我们快速的部署分布式应用，而无需手动一个个创建和运行容器。
+	// Compose文件
+		Compose文件是一个文本文件，通过指令定义集群中的每个容器如何运行。
+		<可以理解为：多个docker run命令(创建容器)的集合>
+		例：
+			version: "3.8"
+			
+			services:
+				mysql:
+					image: mysql:5.7.25													// 镜像名称
+					environment:
+						MYSQL_ROOT_PASSWORD: 123										// 数据库root密码
+					volumes:
+						- /tmp/mysql/data:/var/lib/mysql
+						- /tmp/mysql/conf/hmy.cnf:/etc/mysql/conf.d/hmy.cnf				// 目录/文件挂载<此处没有用数据卷>
+				web:
+					build: .															// 注意'.'，当前目录
+					ports:
+						- 8090: 8090
+			注意：
+				为什么mysql没有写端口号映射？
+					在集群中，不需要让外部的服务访问集群内部的mysql，所以不需要对外暴露端口。
 		
+	
+	-> 下载安装
+		安装：
+			curl -L https://github.com/docker/compose/releases/download/1.23.1/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose
+		<这种执行命令下载安装比较慢，下面使用下载好的docker-compose文件安装>
 		
+		安装步骤：
+			1、将下载好的docker-compose文件上传到`/usr/local/bin/`目录<实际可以在其他位置>
+			2、先cd到docker-compose指定目录位置
+				cd /usr/local/bin
+			3、修改文件权限
+				chmod +x /usr/local/bin/docker-compose			// 可执行权限
+			<也可以不用配置4>
+			4、配置base自动补全
+				curl -L https://raw.githubusercontent.com/docker/compose/1.29.1/contrib/completion/bash/docker-compose > /etc/bash_completion.d/docker-compose
+				如果一直不能访问，卡住了，执行下面的命令后，再执行上面的命令：
+					echo "199.232.68.133 raw.githubusercontent.com" >> /etc/hosts
+					<在hosts目录中添加配置地址映射关系>
+
+	
+-> 微服务部署
+	将我们学习nacos时的项目进行部署。
+	步骤：
+		1、首先分析：
+			需要部署的服务有哪些？
+				项目中：feign-api、gateway、order-service、user-service
+				项目运行环境：nacos、mysql
+		2、编写docker-compose.yml文件
+			version: "3.2"												// DockerCompose版本
+
+			services:
+			  nacos:													// nacos服务<优先部署，所有服务要注册到nacos上>
+				image: nacos/nacos-server
+				environment:											// 环境变量mode，standalone指单机模式启动
+				  MODE: standalone
+				ports:
+				  - "8848:8848"
+			  mysql:													// mysql服务
+				image: mysql:5.7.25
+				environment:
+				  MYSQL_ROOT_PASSWORD: 123								// root密码<需要与项目中的配置一致>
+				volumes:
+				  - "$PWD/mysql/data:/var/lib/mysql"					// $PWD表示一个命令，pwd命令指当前目录
+				  - "$PWD/mysql/conf:/etc/mysql/conf.d/"				// 目录/文件挂载到指定的目录上
+			  userservice:												// user-service<提供者服务>
+				build: ./user-service
+			  orderservice:												// order-service<消费者服务>
+				build: ./order-service
+			  gateway:													// 网关服务
+				build: ./gateway
+				ports:
+				  - "10010:10010"
+			
+			注意：上面所有服务中只有nacos与网关服务暴露了端口号。
+				原因：
+					用户需要在nacos网页客户端中进行管理注册在nacos上的服务。同时用户要想给消费者发送请求，会直接进入网关，由网关过滤请求。
+				所以不需要给消费者与提供者服务暴露网关。而使用DockerCompose部署后，集群内部的服务是可以进行通讯的。
 		
+		3、将微服务进行打包
+			① 此处我们只需要将gateway、orderservice、userservice进行打包。
+				原因：
+					nacos、mysql：这两个服务是各自公司创建的，所以有现成的镜像使用，不需要进行打包。直接pull镜像。
+					feign：在消费者服务中，我们在使用Feign对提供者服务发送请求时就已经先一步将Feign当作依赖引入到了pom文件中，对userservice打包时，会将依赖一同打包
+			② 打包之前需要修改项目一些内容：
+				将数据库、nacos地址命名为docker-compose.yml文件中的服务名称。
+				原因：
+					我们之前使用nacos与mysql时，配置它们的地址都是使用localhost，所以要进行修改。同时dockercompose底层将服务名与服务部署位置进行了映射，
+					所以只需要将localhost改成docker-compose.yml文件中的服务名称。
+			③ 使用maven工具进行打包
+				注意：我们在打包之前需要看一下自定义构建镜像时，Dockerfile文件中命令集中的包名称。如果jar包名称不对应，则自定义镜像就不能成功。
+					例：
+						FROM java:8-alpine
+						COPY ./app.jar /tmp/app.jar
+						ENTRYPOINT java -jar /tmp/app.jar
+				在各自服务的pom文件<build>标签后添加<finalName>app</finalName>。
+			④ 将各个服务的jar包放在对应服务文件目录下，与Dockerfile文件放在一块，相当于一个服务就是一个镜像。
+			⑤ 文件目录结构
+				- 项目名称<cloud-demo>
+					- 项目目录名1
+						-项目jar包
+						-Dockerfile
+					- 项目目录名1
+						-项目jar包
+						-Dockerfile
+					...
+					- docker-compose.yml
+				
+		4、将项目文件夹上传到虚拟机中，利用命令执行docker-compose.yml文件。<此处放到了/tmp目录>
+			先进入docker-compose文件所在的目录内
+				// 构建镜像同时直接创建容器运行整个集群<一键运行>
+				docker-compose up -d		// -d 后台运行
+				// 查看容器
+				docker ps
+				// 查看集群运行日志
+				docker-compose logs -f
+					注意：可以看到集群运行时有报错。消费者与提供者等服务运行报错。
+						原因：nacos如果启动太慢，而其他服务启动过快，此时这些服务加载不到nacos，所以就会报错。
+						解决：
+							将所有微服务重启一下：
+								命令：docker-compose restart gateway userservice orderservice
+							nacos在部署时如果不报错，这样就可以解决，但是如果nacos启动报错，那就要看镜像是不是版本有问题
+				
+		5、浏览器测试集群是否成功。
+			直接向服务发送请求：
+				192.168.10.128:10010/user/1?authorization=admin
+				192.168.10.128:10010/order/101?authorization=admin
+	
+
+	
+-> Docker镜像仓库
+	镜像仓库（ Docker Registry ）有公共的和私有的两种形式：
+		例如Docker官方的DockerHub，国内也有一些云服务商提供类似于DockerHub的公开服务，比如网易云镜像服务、DaoCloud镜像服务、阿里云镜像服务等。
+		除了使用公开仓库外，用户还可以在本地搭建私有 Docker Registry。企业自己的镜像最好是采用私有Docker Registry来实现。
+
+	-> 搭建镜像仓库
+		搭建镜像仓库可以基于Docker官方提供的DockerRegistry来实现。
+		官网地址：https://hub.docker.com/_/registry
 		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
+		1、简易版镜像仓库
+			Docker官方的Docker Registry是一个基础版本的Docker镜像仓库，具备仓库管理的完整功能，但是没有图形化界面。
+			命令：
+				docker run -d \
+					--restart=always \
+					--name registry	\
+					-p 5000:5000 \
+					-v registry-data:/var/lib/registry \
+					registry
+
+			命令中挂载了一个数据卷registry-data到容器内的/var/lib/registry 目录，这是私有镜像库存放数据的目录。
+			访问http://YourIp:5000/v2/_catalog 可以查看当前私有镜像服务中包含的镜像
+
+		2、图形化界面版镜像仓库
+			图像化镜像仓库不是官方提供的，是由第三方个人开发的一个服务。
+			使用DockerCompose部署带有图象界面的DockerRegistry。
+			docker-compose.yml文件命令：
+					version: '3.0'
+						services:
+						  registry:											// Docker Registry服务<官方的服务>
+							image: registry
+							volumes:
+							  - ./registry-data:/var/lib/registry
+						  ui:												// 图形化界面服务
+							image: joxit/docker-registry-ui:static
+							ports:
+							  - 8080:80
+							environment:									// 环境变量
+							  - REGISTRY_TITLE=屈刘杰私有仓库				// 服务部署后标题
+							  - REGISTRY_URL=http://registry:5000			// registry服务地址<只是内部服务地址，我们无法访问>
+							depends_on:										// ui依赖于registry服务
+							  - registry
+				
+			注意：
+				在执行docker-compose.yml之前需要配置Docker信任地址
+			
+				配置Docker信任地址：
+					我们的私服采用的是http协议，默认不被Docker信任，所以需要做一个配置：
+						# 打开要修改的文件
+						vi /etc/docker/daemon.json
+						# 添加内容：
+						"insecure-registries":["http://192.168.10.128:8080"]		<注意给上一个内容后面添加','>
+						# 重加载
+						systemctl daemon-reload
+						# 重启docker
+						systemctl restart docker
+
+			步骤：
+				// 在/tmp目录下创建一个目录 registry-ui
+					mkdir registry-ui
+				// 进入目录
+					cd registry-ui
+				// 新建一个docker-compose.yml文件
+					touch docker-compose.yml
+				// 将DockerCompose命令编辑到docker-compose.yml文件中
+				// 执行docker-compose.yml文件
+					docker-compose up -d		// 如果没有提前下载镜像可能部署会很慢
+				// 浏览器中测试
+					192.168.10.128:8080
+					
+		-> 将镜像上传到我们的私有镜像仓库
+			推送镜像到私有镜像服务必须先tag(给镜像重新起名)，步骤如下：
+				1、重新tag本地镜像，名称前缀为私有仓库的地址：192.168.10.128:8080/
+					docker tag nginx:latest 192.168.10.128:8080/nginx:1.0 		// nginx:latest是旧镜像名
+					注意：
+						重命名成功后查看镜像：docker images
+						发现：重新打包命名的进行与原来的镜像imageID是一样的，说明实际还是同一个镜像。
+
+				2、推送镜像
+					docker push 192.168.10.128:8080/nginx:1.0 
+					成功后就可以在浏览器中看到。
+
+				3、拉取镜像
+					docker pull 192.168.10.128:8080/nginx:1.0 			// 可以在浏览器的镜像详细复制改行命令
+					拉取前先将虚拟机本地的镜像干掉。
+
+
+
+
+
+
+
+
+
+
+
+
 		
 		
 		

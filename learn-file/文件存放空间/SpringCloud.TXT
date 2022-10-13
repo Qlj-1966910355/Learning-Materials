@@ -387,8 +387,8 @@
 	
 	-> Nacos服务分级存储模型<集群>
 		场景：
-			对于一个服务可以部署多个实例，但不能将多个实例放在同一个地方，因此需要将多个实例部署到多个'机房'<容灾>。例：上海、西安、北京三个位置都部署
-			了一个服务的实例，且一个位置有多个实例，每个位置构成了一个集群，多个位置有多个集群，共同协调。
+			对于一个服务可以部署多个实例，但不能将多个实例放在同一个地方，因此需要将多个实例部署到多个'机房'<容灾>。
+			例：上海、西安、北京三个位置都部署了一个服务的实例，且一个位置有多个实例，每个位置构成了一个集群，多个位置有多个集群，共同协调。
 		分级：
 			服务(一级) --> 集群(二级) --> 实例(三级)
 		
@@ -760,6 +760,7 @@
 			帮助我们优雅的实现http请求的发送，解决RestTemplate发送方式的问题。
 			
 	-> 使用步骤：
+		0、创建feign-api微服务<maven>
 		1、消费者服务引入openfeign依赖
 			<!--Feign客户端依赖-->
 			<dependency>
@@ -791,6 +792,13 @@
 					User user = restTemplate.getForObject(url, User.class);
 		
 		4、调用Feign实现的请求方法
+			-> 向order服务中引入feign-api依赖<可以直接引入，不需要将feign-api打成jar包>
+				<!--引入feign-api依赖-->
+				<dependency>
+					<groupId>cn.itcast.demo</groupId>
+					<artifactId>feign-api</artifactId>
+					<version>1.0</version>
+				</dependency>
 			-> 注入接口参数
 			    @Autowired
 				private UserClient userClient;
@@ -1246,7 +1254,12 @@
 							maxAge: 360000 # 这次跨域检测的有效期
 
 
--> Docker
+-> Docker跳过
+
+
+
+-> 服务异步通讯<RabbitMQ> 
+
 	
 			
 				
