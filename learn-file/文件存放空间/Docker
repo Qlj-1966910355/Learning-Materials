@@ -722,7 +722,7 @@
 
 	
 -> Docker镜像仓库
-	镜像仓库（ Docker Registry ）有公共的和私有的两种形式：
+	镜像仓库（Docker Registry）有公共的和私有的两种形式：
 		例如Docker官方的DockerHub，国内也有一些云服务商提供类似于DockerHub的公开服务，比如网易云镜像服务、DaoCloud镜像服务、阿里云镜像服务等。
 		除了使用公开仓库外，用户还可以在本地搭建私有 Docker Registry。企业自己的镜像最好是采用私有Docker Registry来实现。
 
