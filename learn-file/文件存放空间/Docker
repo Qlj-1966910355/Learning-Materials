@@ -176,13 +176,13 @@
 	-> 镜像增删查命令
 		// 查看镜像
 			docker images
-		// 获取镜像<从镜像服务器pull>
+		// 获取镜像<从镜像仓库pull>
 			docker pull
 		// 获取镜像<从本地dockerfile>
 			docker build
 		// 删除镜像
 			docker rmi
-		// 推送镜像<推送到镜像服务器中>
+		// 推送镜像<推送到镜像仓库中>
 			docker push
 		// 压缩镜像<压缩为一个文件>
 			docker save
