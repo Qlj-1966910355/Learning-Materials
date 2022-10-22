@@ -241,7 +241,7 @@ git
 			
 	2、idea定位git程序
 		Setting ---> Version Control ---> git
-			-> path to git executable：git安装目录<注意：定位到git.exe程序>		tset：查看版本信息
+			-> path to git executable：git安装目录<注意：定位到../cmd/git.exe程序>		tset：查看版本信息
 	
 	3、git管理idea项目
 		<管理到项目时项目根目录下存在.git目录>(当然你可以用命令行进行管理)
@@ -253,7 +253,7 @@ git
 		如何在idea中将文件添加到暂存区？
 			选中目标文件 ---> 右击 ---> git ---> add		<文件名变绿了>
 			// 当然，新建class文件时，idea会自动提示是否添加到暂存区
-			// 也可以之间右击项目根目录，直接将所有文件添加到暂存区，添加时会提示(是否强制添加忽略的文件)，此时一定要点击‘取消’，不能add
+			// 也可以直接右击项目根目录，直接将所有文件添加到暂存区，添加时会提示(是否强制添加忽略的文件)，此时一定要点击‘取消’，不能add
 		
 		如何将文件提交到本地库？
 			与添加到暂存区操作一样，选择‘commit directory’ ---> 打开提交框后在commit message中写提交信息(例：first commit)
