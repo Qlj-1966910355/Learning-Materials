@@ -67,3 +67,11 @@
 	public static final String toJSONString(Object object, boolean prettyFormat);    // 将JavaBean序列化为带格式的JSON文本 
 	public static final Object toJSON(Object javaObject);          //将JavaBean转换为JSONObject或者JSONArray。
 	Map maps = (Map<String, List<JSONArray>>)JSON.parse(str);  			// 将str这个json字符串转换为map集合
+	
+	
+
+
+	
+	
+	
+	

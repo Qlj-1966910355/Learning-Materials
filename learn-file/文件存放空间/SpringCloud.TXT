@@ -268,6 +268,7 @@
 			// 用服务提供者的服务名称远程调用
 			
 			
+			
 -> Ribbon负载均衡原理
 	<学习文章：https://blog.csdn.net/tf835991342/article/details/122236383>
 	小问题：我们知道，在消费者服务中采用的是服务提供者的服务名称代替了ip与端口号，那是否可以直接在浏览器执行这个被代替后的地址呢？
@@ -1328,7 +1329,7 @@
 						docker load -i mq.tar
 					// 查看镜像
 						docker images			// rabbitmq:3-management
-			2、安装MQ
+			2、首次安装MQ
 				docker run \
 					-e RABBITMQ_DEFAULT_USER=qlj \			// 用户名
 					-e RABBITMQ_DEFAULT_PASS=123321 \		// 密码		<访问或登录管理平台MQ时需要>
@@ -1340,6 +1341,8 @@
 					rabbitmq:3-management					// 镜像名称
 			3、查看安装成功
 				查看容器是否启动：docker ps		<查看运行中的容器>
+			3.1、退出/运行容器
+				docker stop/start 容器名称
 			4、登录MQ管理平台
 				http://192.168.10.128:15672/		<注意：端口号是管理平台的端口号>
 	
@@ -1383,12 +1386,288 @@
 					
 				5、主题<Topic Exchange>
 					结构：生产者P、交换机Exchange、消息队列Queue、消费者C(多个消费者)
+	
+	
+	-> 消息模型实现
+		1、直连模式<基本消息队列>
+			-> 生产者发送消息
+				提取步骤：
+					1. 建立连接<生产者与MQ建立连接，在连接工厂中获取连接>
+						① 设置连接参数，分别是：主机名、端口号、vhost(虚拟主机)、用户名、密码
+						② 建立连接<建立连接后，管理平台connections中就存在一个连接>
+					2. 创建通道Channel<通道创建后，管理平台channels中就会存在一个通道>
+					3. 创建队列<创建消息队列，管理平台queues就存在一个消息队列>
+					4. 发送消息<消息发送结束后，在管理平台进入指定的消息队列中，get message 查看发送的消息>
+					5. 关闭通道和连接<关闭后管理平台就不存在连接与通道了>
+				案例：
+					public void testSendMessage() throws IOException, TimeoutException {
+						// 1.建立连接<生产者与MQ建立连接，在连接工厂中获取连接>
+						ConnectionFactory factory = new ConnectionFactory();
+						// 1.1.设置连接参数，分别是：主机名、端口号、vhost、用户名、密码
+						factory.setHost("192.168.10.128");
+						// MQ消息通讯端口<不是MQ管理平台的端口>
+						factory.setPort(5672);
+						// 虚拟主机<在MQ管理平台中的admin中查看虚拟主机>
+						factory.setVirtualHost("/");
+						// MQ用户名
+						factory.setUsername("qlj");
+						// 密码
+						factory.setPassword("123321");
+						// 1.2.建立连接<建立连接后，管理平台connections中就存在一个连接>
+						Connection connection = factory.newConnection();
+
+						// 2.创建通道Channel<通道创建后，管理平台channels中就会存在一个通道>
+						Channel channel = connection.createChannel();
+
+						// 3.创建队列<创建消息队列，管理平台queues就存在一个消息队列>
+						String queueName = "simple.queue";
+						channel.queueDeclare(queueName, false, false, false, null);
+
+						// 4.发送消息<消息发送结束后，在管理平台进入指定的消息队列中，get message 查看发送的消息>
+						String message = "hello, rabbitmq!";
+						channel.basicPublish("", queueName, null, message.getBytes());
+						System.out.println("发送消息成功：【" + message + "】");
+
+						// 5.关闭通道和连接<关闭后管理平台就不存在连接与通道了>
+						channel.close();
+						connection.close();
+					}
+
+			-> 消费者订阅接收处理消息
+				提取步骤：
+					1.建立连接
+						① 设置连接参数，分别是：主机名、端口号、vhost(虚拟主机)、用户名、密码
+						② 建立连接
+					2.创建通道Channel
+					3.创建队列
+						为什么生产者创建了消息队列，这里又创建了一次消息队列？
+							原因：生产者与消费者启动顺序不确定，如果消费者先启动，保证消息队列一定存在。
+							注意：如果生产者优先创建了消息队列，此处不会重复创建的，除非消息队列名称不一致。
+					4.订阅消息<Consume：消费消息>	
+						channel.basicConsume()   // 订阅消息方法
+						参数：
+						 queueName：指定的消息队列
+						 true：是否自动确认消息已经消费，如果为false则需要手动确认消费信息。
+						 new DefaultConsumer(channel){}：消费消息的行为
+						     handleDelivery()：相当于一个回到函数。一旦指定的消息队列中有个消息，这个方法就会被触发调用。<异步执行>
+						     <实际上就是实现封装好消费消息的行为，然后将这个消费行为挂到消息队列上，将来消息队列中一旦有了消息，这个消费行为就会触发>
+						     参数：
+						         body：消息体，字节数组。生产者发送到RabbitMQ后就变成了字节数组。
+					5.处理消息<消息被接受执行后会立即销毁，控制平台在消息队列中就看不到这条消息>
+						注意：处理消息的方法是回调执行的，不是立即必须执行，相当于挂起状态。而挂起后不能影响后续代码执行，所以方法一定是异步的。		
+				案例：
+					public static void main(String[] args) throws IOException, TimeoutException {
+						// 1.建立连接
+						ConnectionFactory factory = new ConnectionFactory();
+						// 1.1.设置连接参数，分别是：主机名、端口号、vhost、用户名、密码
+						factory.setHost("192.168.10.128");
+						factory.setPort(5672);
+						factory.setVirtualHost("/");
+						factory.setUsername("qlj");
+						factory.setPassword("123321");
+						// 1.2.建立连接
+						Connection connection = factory.newConnection();
+
+						// 2.创建通道Channel
+						Channel channel = connection.createChannel();
+
+						// 3.创建队列
+						/**
+						 * 为什么生产者创建了消息队列，这里又创建了一次消息队列？
+						 *  原因：生产者与消费者启动顺序不确定，如果消费者先启动，保证消息队列一定存在。
+						 *  注意：如果生产者优先创建了消息队列，此处不会重复创建的，除非消息队列名称不一致。
+						 */
+						String queueName = "simple.queue";
+						channel.queueDeclare(queueName, false, false, false, null);
+
+						// 4.订阅消息<Consume：消费消息>
+						/**
+						 * channel.basicConsume()   // 订阅消息方法
+						 * 参数：
+						 *  queueName：指定的消息队列
+						 *  true：是否自动确认消息已经消费，如果为false则需要手动确认消费信息。
+						 *  new DefaultConsumer(channel){}：消费消息的行为
+						 *      handleDelivery()：相当于一个回到函数。一旦指定的消息队列中有个消息，这个方法就会被触发调用。<异步执行>
+						 *      <实际上就是实现封装好消费消息的行为，然后将这个消费行为挂到消息队列上，将来消息队列中一旦有了消息，这个消费行为就会触发>
+						 *      参数：
+						 *          body：消息体，字节数组。生产者发送到RabbitMQ后就变成了字节数组。
+						 */
+						channel.basicConsume(queueName, true, new DefaultConsumer(channel){
+							@Override
+							public void handleDelivery(String consumerTag, Envelope envelope,
+													   AMQP.BasicProperties properties, byte[] body) throws IOException {
+								// 5.处理消息<消息被接受执行后会立即销毁，控制平台在消息队列中就看不到这条消息>
+								String message = new String(body);
+								System.out.println("接收到消息：【" + message + "】");
+							}
+						});
+						// 注意：上面的方法是回调执行的，不是立即必须执行，相当于挂起状态。而挂起后不能影响后续代码执行，所以方法一定是异步的。
+						System.out.println("等待接收消息。。。。");
+					}
+
+	-> SpringAMQP
+		-> 概念
+			AMQP：
+				Advanced Message Queuing Protocol(高级消息队列协议)。
+				是用于应用程序或应用程序之间传递业务消息的开放标准。
+				该协议与语言和平台无关，更符合微服务中独立性的要求。
+			Spring AMQP：
+				网站：https://spring.io/projects/spring-amqp
+				是基于AMQP协议定义的一套API规范，提供了模板来发送和接收消息。
+				包含两部分：
+					spring-amqp是基础抽象
+					spring-rabbit是底层默认实现
+				功能：
+					用于异步处理入站消息的监听器容器
+					用于发送和接收消息的RabbitTemplate
+					RabbitAdmin用于自动声明队列、交换和绑定<自动创建队列>
 		
-		
+		-> 使用SpringAMQP实现RabbitMQ消息模型
+			1、直连模式<基本消息队列>
+				流程：
+					1. 引入spring-amqp的依赖。
+						由于我们是微服务工程，直接在父工程中引入依赖
+							<!--AMQP依赖，包含RabbitMQ-->
+							<dependency>
+								<groupId>org.springframework.boot</groupId>
+								<artifactId>spring-boot-starter-amqp</artifactId>
+							</dependency>
+					2. 在生产者中利用RabbitTemplate发送消息到消息队列中
+						2.1. 在生产者中的yaml中配置mq连接信息
+							spring.rabbitmq.host: 192.168.10.128    #mq运行服务器地址
+											port: 5672  #端口
+											virtual-host: /   # 虚拟主机
+											username: qlj   # 用户名
+											password: 123321    # 密码
+						2.2. 编写消息发送程序
+							下面使用单元测试做消息的发送，实际业务在service中写的
+								/**
+								 * Runner是Junit的运行器，即运行测试用例的工具。
+								 *  在测试类之上，使用@RunWith()注解为这个类指定一个特定的Runner。当我们没有指定@RunWith()的时候，
+								 * 会自动使用Junit的默认Runner——BlockJunit4ClassRunner。
+								 */
+								 
+								//@RunWith(SpringRunner.class)
+								@SpringBootTest
+								public class SpringAmqpTest {
+									@Autowired
+									private RabbitTemplate rabbitTemplate;
 
+									@Test
+									void basicMessageSend(){
+										// 消息队列名称
+										String queueName = "simple.queue";
+										// 消息
+										String message = "hello,spring amqp!";
+										// 转换并发送
+										rabbitTemplate.convertAndSend(queueName, message);
+									}
+								}
+							注意：
+								queueName这个消息队列是前面传统发送消息时创建的。
+					
+					3. 在消费者中编写消费逻辑，绑定消息队列。
+						<之前的项目中已经创建了一个消息队列，此处先使用这个消息队列(simple.queue)>
+						3.1. 在消费者的yaml中配置mq连接
+							spring.rabbitmq.host: 192.168.10.128    #mq运行服务器地址
+											port: 5672  #端口
+											virtual-host: /   # 虚拟主机
+											username: qlj   # 用户名
+											password: 123321    # 密码
+						3.2. 在消费者中新建一个类，编写消费逻辑<在src中>
+							@Component
+							public class SpringAmqpRabbitListener {
+								@RabbitListener(queues = "simple.queue")
+								public void listenerSimpleQueue(String msg) {
+									System.out.println("接收消息：" + msg);
+								}
+							}
+						3.3. 启动服务，启动成功时就会执行listenerSimpleQueue()方法。
+							原因：
+								在生产者中，我们已经发送了一次消息，并且消息存放在了simple.queue队列中。
+								而被@RabbitListener(queues = "simple.queue")注解标注后，当在指定的消息队列中一旦发现消息，就会自动执行被标注的方法。
+								方法形参就是接收消息内容，方法体用于消费者逻辑编写。
+							注意：
+								消息被消费后就会从消息队列中删除。
+			
+				2、工作消息队列<WorkQueue>
+					作用：提高消费者处理消息的速度，避免消息队列消息堆积。
+					特点：消息队列后可以有多个消费者。
+					注意：
+						在基本消息队列中，消息一旦被消费就会立即被删除，所以消息队列后只能有一个消费者订阅。
+					场景：
+						当生产者生产消息量较大时，比如1s发送100个消息，而消费者服务只能一个一个进行处理，1s只能处理20个消息，此时消息就会滞留在
+						消息队列中，最终内存被占满。<所以我们需要多个消费者进行消费消息>
+					
+					案例：
+						《工作消息队列并没有出现新的API，在基本消息队列的基础上进行多消费者更改》
+						模拟WorkQueue，实现一个队列绑定多个消费者。
+							1. 引入spring-amqp的依赖。
+							2. 编写消息发送程序<模拟消息发送50条>
+								// 工作消息队列发送<消息队列绑定多个消费者，避免消息堆积>
+								@Test
+								public void workMessageSend() throws InterruptedException {
+									// 消息队列名称
+									String queueName = "simple.queue";
+									// 消息
+									String message = "hello,spring amqp_";
+									for (int i = 1; i <= 50; i++) {
+										// 转换并发送
+										rabbitTemplate.convertAndSend(queueName, message + i);
+										Thread.sleep(20);		// 让程序执行慢一点
+									}
+								}
+								注意：
+									先不要运行，让消费者服务先运行。<消费者服务启动后，生产者生产消息后会立即被消费者获取到并处理>
+							3. 配置mq地址；新建一个类，编写消费逻辑；
+								3.1. yaml配置：
+									spring:
+									  rabbitmq:
+										host: 192.168.10.128    #mq运行服务器地址
+										port: 5672  #端口
+										virtual-host: /   # 虚拟主机
+										username: qlj   # 用户名
+										password: 123321    # 密码
+										listener:
+										  simple:
+											prefetch: 1   # 消息预期上限
+								3.2. 编写消费者处理类：
+									
+									/**
+									 * 工作消息队列接收
+									 * <创建了两个消费者，它们的能力不同，消费者1每秒处理50条消息，消费者2每秒处理5条消息>
+									 * <测试：两个消费者消费消息是否按照自身能力大小进行消费，也就是说是否按照能力越大消费越多>
+									 * @param msg 消息内容
+									 * @throws InterruptedException
+									 * <结果：默认情况下多个消费者拿到的消息量相同，与能力大小无关></>
+									 * <原因：
+									 *  默认采用‘消息预取机制’。
+									 *      生产者发送50条消息时，消息队列会先将消息进行投递，不管消费者能力大小或者能不能执行，提前将消息一人一个的
+									 *      方式给消费者(所以出现奇数位消息与偶数位消息分别由两个消费者执行)。而处理能力小的消费者就会执行很慢。
+									 *  >
+									 *  <解决：消息预期机制默认预期上限是无穷。有多少拿多少。通过yaml进行配置预期上限。
+									 *      listener.simple.prefetch: 1     // 预期上限为1
+									 *  >
+									 */
+									@RabbitListener(queues = "simple.queue")
+									public void listenerSimpleQueue1(String msg) throws InterruptedException {
+										System.out.println("workqueue2接收消息：【" + msg + "】" + LocalTime.now());
+										Thread.sleep(20);
+									}
+									@RabbitListener(queues = "simple.queue")
+									public void listenerSimpleQueue2(String msg) throws InterruptedException {
+										// err：表示输出为红色<为了与上面的区分>
+										System.err.println("workqueue2...接收消息：【" + msg + "】" + LocalTime.now());
+										Thread.sleep(200);
+									}
+									
 
+				
+							
+							
+			
 
-
+			
 
 
 
