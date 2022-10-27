@@ -1357,7 +1357,7 @@
 				消息的载体，每个消息都会被投到一个或多个队列，等待消费者连接到这个队列将其取走。它是消息的容器，也是消息的终点。
 			3、routing Key
 				路由关键字，exchange根据这个关键字进行消息投递。
-			4、binding
+			4、binding key
 				用于消息队列和交换器之间的关联。
 				一个绑定就是基于路由键将交换器和消息队列连接起来的路由规则，所以可以将交换器理解成一个由绑定构成的路由表。
 				它的作用就是把exchange和queue按照路由规则绑定起来。
@@ -1380,7 +1380,6 @@
 				3、广播<Fanout Exchange>
 					结构：生产者P、交换机Exchange、消息队列Queue、消费者C(多个消费者)
 					
-					
 				4、路由<Direct Exchange>
 					结构：生产者P、交换机Exchange、消息队列Queue、消费者C(多个消费者)
 					
@@ -1389,7 +1388,7 @@
 	
 	
 	-> 消息模型实现
-		1、直连模式<基本消息队列>
+		直连模式<基本消息队列>
 			-> 生产者发送消息
 				提取步骤：
 					1. 建立连接<生产者与MQ建立连接，在连接工厂中获取连接>
@@ -1523,73 +1522,76 @@
 					RabbitAdmin用于自动声明队列、交换和绑定<自动创建队列>
 		
 		-> 使用SpringAMQP实现RabbitMQ消息模型
-			1、直连模式<基本消息队列>
-				流程：
-					1. 引入spring-amqp的依赖。
-						由于我们是微服务工程，直接在父工程中引入依赖
-							<!--AMQP依赖，包含RabbitMQ-->
-							<dependency>
-								<groupId>org.springframework.boot</groupId>
-								<artifactId>spring-boot-starter-amqp</artifactId>
-							</dependency>
-					2. 在生产者中利用RabbitTemplate发送消息到消息队列中
-						2.1. 在生产者中的yaml中配置mq连接信息
-							spring.rabbitmq.host: 192.168.10.128    #mq运行服务器地址
-											port: 5672  #端口
-											virtual-host: /   # 虚拟主机
-											username: qlj   # 用户名
-											password: 123321    # 密码
-						2.2. 编写消息发送程序
-							下面使用单元测试做消息的发送，实际业务在service中写的
-								/**
-								 * Runner是Junit的运行器，即运行测试用例的工具。
-								 *  在测试类之上，使用@RunWith()注解为这个类指定一个特定的Runner。当我们没有指定@RunWith()的时候，
-								 * 会自动使用Junit的默认Runner——BlockJunit4ClassRunner。
-								 */
-								 
-								//@RunWith(SpringRunner.class)
-								@SpringBootTest
-								public class SpringAmqpTest {
-									@Autowired
-									private RabbitTemplate rabbitTemplate;
+			注意：
+				以下5种消息发送都采用RabbitTemplate进行发送消息的。<使用@Autowired>
+			-> 无交换机<消息即用即删>
+				1、直连模式<基本消息队列>
+					流程：
+						1. 引入spring-amqp的依赖。
+							由于我们是微服务工程，直接在父工程中引入依赖
+								<!--AMQP依赖，包含RabbitMQ-->
+								<dependency>
+									<groupId>org.springframework.boot</groupId>
+									<artifactId>spring-boot-starter-amqp</artifactId>
+								</dependency>
+						2. 在生产者中利用RabbitTemplate发送消息到消息队列中
+							2.1. 在生产者中的yaml中配置mq连接信息
+								spring.rabbitmq.host: 192.168.10.128    #mq运行服务器地址
+												port: 5672  #端口
+												virtual-host: /   # 虚拟主机
+												username: qlj   # 用户名
+												password: 123321    # 密码
+							2.2. 编写消息发送程序
+								下面使用单元测试做消息的发送，实际业务在service中写的
+									/**
+									 * Runner是Junit的运行器，即运行测试用例的工具。
+									 *  在测试类之上，使用@RunWith()注解为这个类指定一个特定的Runner。当我们没有指定@RunWith()的时候，
+									 * 会自动使用Junit的默认Runner——BlockJunit4ClassRunner。
+									 */
+									 
+									//@RunWith(SpringRunner.class)
+									@SpringBootTest
+									public class SpringAmqpTest {
+										@Autowired
+										private RabbitTemplate rabbitTemplate;
 
-									@Test
-									void basicMessageSend(){
-										// 消息队列名称
-										String queueName = "simple.queue";
-										// 消息
-										String message = "hello,spring amqp!";
-										// 转换并发送
-										rabbitTemplate.convertAndSend(queueName, message);
+										@Test
+										void basicMessageSend(){
+											// 消息队列名称
+											String queueName = "simple.queue";
+											// 消息
+											String message = "hello,spring amqp!";
+											// 转换并发送
+											rabbitTemplate.convertAndSend(queueName, message);
+										}
+									}
+								注意：
+									queueName这个消息队列是前面传统发送消息时创建的。
+						
+						3. 在消费者中编写消费逻辑，绑定消息队列。
+							<之前的项目中已经创建了一个消息队列，此处先使用这个消息队列(simple.queue)>
+							3.1. 在消费者的yaml中配置mq连接
+								spring.rabbitmq.host: 192.168.10.128    #mq运行服务器地址
+												port: 5672  #端口
+												virtual-host: /   # 虚拟主机
+												username: qlj   # 用户名
+												password: 123321    # 密码
+							3.2. 在消费者中新建一个类，编写消费逻辑<在src中>
+								@Component
+								public class SpringAmqpRabbitListener {
+									@RabbitListener(queues = "simple.queue")
+									public void listenerSimpleQueue(String msg) {
+										System.out.println("接收消息：" + msg);
 									}
 								}
-							注意：
-								queueName这个消息队列是前面传统发送消息时创建的。
-					
-					3. 在消费者中编写消费逻辑，绑定消息队列。
-						<之前的项目中已经创建了一个消息队列，此处先使用这个消息队列(simple.queue)>
-						3.1. 在消费者的yaml中配置mq连接
-							spring.rabbitmq.host: 192.168.10.128    #mq运行服务器地址
-											port: 5672  #端口
-											virtual-host: /   # 虚拟主机
-											username: qlj   # 用户名
-											password: 123321    # 密码
-						3.2. 在消费者中新建一个类，编写消费逻辑<在src中>
-							@Component
-							public class SpringAmqpRabbitListener {
-								@RabbitListener(queues = "simple.queue")
-								public void listenerSimpleQueue(String msg) {
-									System.out.println("接收消息：" + msg);
-								}
-							}
-						3.3. 启动服务，启动成功时就会执行listenerSimpleQueue()方法。
-							原因：
-								在生产者中，我们已经发送了一次消息，并且消息存放在了simple.queue队列中。
-								而被@RabbitListener(queues = "simple.queue")注解标注后，当在指定的消息队列中一旦发现消息，就会自动执行被标注的方法。
-								方法形参就是接收消息内容，方法体用于消费者逻辑编写。
-							注意：
-								消息被消费后就会从消息队列中删除。
-			
+							3.3. 启动服务，启动成功时就会执行listenerSimpleQueue()方法。
+								原因：
+									在生产者中，我们已经发送了一次消息，并且消息存放在了simple.queue队列中。
+									而被@RabbitListener(queues = "simple.queue")注解标注后，当在指定的消息队列中一旦发现消息，就会自动执行被标注的方法。
+									方法形参就是接收消息内容，方法体用于消费者逻辑编写。
+								注意：
+									消息被消费后就会从消息队列中删除。
+				
 				2、工作消息队列<WorkQueue>
 					作用：提高消费者处理消息的速度，避免消息队列消息堆积。
 					特点：消息队列后可以有多个消费者。
@@ -1641,7 +1643,8 @@
 									 * @throws InterruptedException
 									 * <结果：默认情况下多个消费者拿到的消息量相同，与能力大小无关></>
 									 * <原因：
-									 *  默认采用‘消息预取机制’。
+									 *  默认采用‘消息预取机
+									 制’。
 									 *      生产者发送50条消息时，消息队列会先将消息进行投递，不管消费者能力大小或者能不能执行，提前将消息一人一个的
 									 *      方式给消费者(所以出现奇数位消息与偶数位消息分别由两个消费者执行)。而处理能力小的消费者就会执行很慢。
 									 *  >
@@ -1660,14 +1663,298 @@
 										System.err.println("workqueue2...接收消息：【" + msg + "】" + LocalTime.now());
 										Thread.sleep(200);
 									}
-									
+			
+			
+			-> 发布订阅模式<有交换机>
+				前面两个模板案例中的消息在发送后接收就会被删除。不能实现同一条消息推送给多个消费者的业务。
+				实现方式：
+					添加交换机。<在生产者发送消息给消息队列间添加一个交换机>
+						<注意：交换机Exchange负责的是消息的路由，并不是存储，路由失败时消息就会丢失，发不到消息队列中>
+				常见交换机：
+					// Fanout：广播
+					// Direct：路由
+					// Topic：话题
+				交换机作用：
+					接收生产者发送的消息；
+					将消息按照规则路由到与之绑定的队列；
+					不能缓存消息，路由失败消息丢失；
+					区别：
+						fanoutexchange：将消息路由到每个被绑定的消息队列
+						directexchange：根据规则路由到指定消息队列<存在routingkey与bindingkey对应关系>
+						topicexchange：与direct类似，区别在于routingkey必须由多个单词组成，单词之间必须以'.'分隔，同时bindingkey可以使用通配符代替。
+						
+				3、Fanout广播消息模型
+					之所以称之为广播，是因为交换机在路由消息时，是将消息路由到与之绑定的所有消息队列中的，所以称作广播。
+					步骤：
+						1. 消息接收
+							我们先将消费者配置完成并启动，生产者一旦发送消息就会接收。
+							1.1. 首先需要创建配置类config
+							    ① 创建交换机对象
+							    ② 创建消息队列对象<多个消息队列>
+							    ③ 绑定交换机与消息队列<一个交换机可以绑定多个消息队列>
+							1.2. 创建消费者消费业务，实现消费逻辑
+							    <每个消息队列都可以有一个或多个消费者>
+							1.3. 启动服务，MQ管理平台检验交换机绑定是否成功
+							    启动成功后，管理平台中的Exchanges栏就会存在创建好的交换机名称(itcast.fanout)。
+							    进入Bindings中就可以看到被绑定在交换机上的所有消息队列。
+						2. 消息发送
+							2.1. 指定交换机名称
+							2.2. 编辑消息并发送
+						注意：
+							我们将交换机与消息队列的创建与绑定都放在了消费者所在的服务中。与之前在生产者所在服务创建消息队列不同。
+					案例：
+						<生产者发送一条消息，两个消费者同时接收并显示>
+						1.消息接收
+							1.1. 创建配置类，创建交换机与消息队列并绑定
+								// 下面配置类创建了一个交换机itcast.fanout，两个消息队列fanout.queue1、fanout.queue2
+								@Configuration
+								public class FanoutConfig {
+									// 交换机fanout
+									@Bean
+									public FanoutExchange fanoutExchange() {
+										return new FanoutExchange("itcast.fanout");
+									}
+									// 消息队列queue1
+									@Bean
+									public Queue fanoutQueue1() {
+										return new Queue("fanout.queue1");
+									}
+									// 交换机与消息队列绑定
+									@Bean
+									public Binding fanoutBanding1(Queue fanoutQueue1, FanoutExchange fanoutExchange) {
+										// 将消息队列fanoutQueue1绑定到fanoutExchange交换机上
+										return BindingBuilder.bind(fanoutQueue1).to(fanoutExchange);
+									}
+									// 消息队列queue1
+									@Bean
+									public Queue fanoutQueue2() {
+										return new Queue("fanout.queue2");
+									}
+									// 交换机与消息队列绑定
+									@Bean
+									public Binding fanoutBanding2(Queue fanoutQueue2, FanoutExchange fanoutExchange) {
+										// 将消息队列fanoutQueue2绑定到fanoutExchange交换机上
+										return BindingBuilder.bind(fanoutQueue2).to(fanoutExchange);
+									}
+								}
+							1.2. 创建接收消息逻辑并启动
+								// 每个消息队列都可以绑定一个或多个消费者，下面两个消费者方法分别绑定了不同的消息队列。
+								@RabbitListener(queues = "fanout.queue1")
+								public void listenerFanoutQueue1(String msg) {
+									System.out.println("消费者接收到fanout.queue1的消息：【" + msg + "】");
+								}
+								@RabbitListener(queues = "fanout.queue2")
+								public void listenerFanoutQueue2(String msg) {
+									System.out.println("消费者接收到fanout.queue2的消息：【" + msg + "】");
+								}
+								
+						2.消息发送<依然在测试类中发送消息(方便)>
+							// 与之前消息发送不同的是需要按照交换机名称发送，不需要知道消息队列名称
+							@Test
+							public void fanoutMessageSend() {
+								// 交换机名称
+								String exchangeName = "itcast.fanout";
+								// 消息
+								String message = "hello,fanoutMessage...";
+								// 发送消息
+								rabbitTemplate.convertAndSend(exchangeName, "",message);	// 第二个参数RoutingKey在后面路由交换机有具体讲解
+							}
 
+				4、Direct路由消息模型
+					DirectExchange(路由交换机)会将接收到的消息根据规则路由到指定的Queue。<与广播路由的区别就是路由规则>
+					消息路由原理：
+						每一个消息队列都与路由器设置一个BindingKey.
+						消息生产者发送消息时，指定消息的RoutingKey.
+						交换机将消息路由到BindingKey与消息RoutingKey一致的队列.
+						<每个消息队列可以有多个BindingKey，只要路由器发送的Key存在于消息队列的BindingKey中，消息队列就能拿到消息>
+						<当被绑定的消息队列上都包含某个BindingKey时，实际上就是广播交换机消息模式>
+					故：
+						我们在交换机与消息队列绑定时会设置一个BindingKey，而生产者发送消息时会携带一个RoutingKey，如果消息队列的BindingKey中包含
+						RoutingKey，则这条消息就会发送到被绑定的消息队列中。
+					注意：
+						在广播消息对列模式中，我们采用config配置类创建交换机与消息队列并绑定，而路由消息模式中我们直接使用注解进行创建绑定。
+					
+					案例：
+						<不需要写config类了>
+						1. 消息接收
+							/**
+							 * 路由交换机模式消息接收
+							 *  在广播消息对列模式中，我们采用config配置类创建交换机与消息队列并绑定，而路由消息模式中我们直接使用注解进行创建绑定
+							 * @param msg 消息
+							 */
+							@RabbitListener(bindings = @QueueBinding(
+									// 消息队列创建
+									value = @Queue(name = "direct.queue1"),
+									// 交换机创建<默认类型就是Direct类型的交换机>
+									exchange = @Exchange(name = "itcast.direct", type = ExchangeTypes.DIRECT),
+									// BindingKey
+									key = {"k1", "k2"}
+							))
+							public void listenerDirectQueue1(String msg) {
+								System.out.println("消费者接收到direct.queue1[k1,k2]的消息：【" + msg + "】");
+							}
+							@RabbitListener(bindings = @QueueBinding(
+									value = @Queue(name = "direct.queue2"),
+									exchange = @Exchange(name = "itcast.direct", type = ExchangeTypes.DIRECT),
+									key = {"k1", "k3"}
+							))
+							public void listenerDirectQueue2(String msg) {
+								System.out.println("消费者接收到direct.queue2[k1,k3]的消息：【" + msg + "】");
+							}
+						2. 消息发送
+							@Test
+							public void directMessageSend() {
+								// 交换机名称
+								String exchangeName = "itcast.direct";
+								// 消息
+								String message = "hello_k2,DirectMessage...";
+								// 发送消息
+								rabbitTemplate.convertAndSend(exchangeName, "k2",message);		// 参数2就是routingkey
+							}
+							注意：
+								routingkey = k2时，只有消息队列direct.queue1拿到了这条消息。
 				
-							
+				5、Topic话题消息模式
+					案例：
+						1. 消息接收
+						    /**
+							 * 话题交换机消息模型
+							 *  Topic与DirectExchange类似，区别在于routingkey必须由多个单词组成，单词之间必须以'.'分隔。
+							 *      例：routingkey = “china.news”
+							 *  BindingKey可以使用通配符：
+							 *      #：0个或多个单词
+							 *      *：1个单词 <注意不是字符>
+							 *  例如：bindingkey="china.news"   替代：bindingkey="china.*" | bindingkey="china.#"
+							 *  routingkey与bindingkey对应关系：
+							 *      例：
+							 *          1、routingkey = "china.news" ==> bindingkey = "china.#"
+							 *          2、routingkey = "china.weather" ==> bindingkey = "china.#"
+							 *          3、routingkey = "japan.news" ==> bindingkey = "*.news"
+							 *          4、routingkey = "china.news" ==> bindingkey = "*.news"
+							 *      可以发现：1和2的routingkey首单词一致，可以匹配到china.#。
+							 * @param msg 消息
+							 */
+							@RabbitListener(bindings = @QueueBinding(
+									// 消息队列
+									value = @Queue(name = "topic.queue1"),
+									// 话题交换机<注意更换交换机类型，默认是Direct>
+									exchange = @Exchange(name = "itcast.topic", type = ExchangeTypes.TOPIC),
+									// bindingkey
+									key = "china.#"
+							))
+							public void listenerTopicQueue1(String msg) {
+								System.out.println("消费者接收到topic.queue1的消息：【" + msg + "】");
+							}
+							@RabbitListener(bindings = @QueueBinding(
+									value = @Queue(name = "topic.queue2"),
+									exchange = @Exchange(name = "itcast.topic", type = ExchangeTypes.TOPIC),
+									key = "*.news"
+							))
+							public void listenerTopicQueue2(String msg) {
+								System.out.println("消费者接收到topic.queue2的消息：【" + msg + "】");
+							}
+						
+						2. 消息发送
+							// 话题交换机模式消息发送
+							@Test
+							public void topicMessageSend() {
+								// 交换机名称
+								String exchangeName = "itcast.topic";
+								// 消息
+								String message = "hello_china.news,TopicMessage...";
+								// 发送消息
+								rabbitTemplate.convertAndSend(exchangeName, "china.news",message);
+							}
+										
+										
+		-> RabbitTemplate序列化问题
+			问题：
+				使用SpringAMQP发送消息时，rabbitTemplate.convertAndSend()方法中接收的消息参数是Object类型，那么如果传入消息参数是一个java对象，
+				消费者接收到消息是否可以正常使用这个对象？
+			答案：
+				MQ消息队列中不能查看java对象<被序列化>，但是消费者使用对应的类型接收时可以使用<反序列化>。
+			原因：
+				与Redis的使用SpringDataRedis存取数据一样，java序列化与反序列化采用的工具一样<底层使用jdk自带的序列化>，所以消费者使用时正常。
+				但是，Rabbit在将消息存储到消息队列中时，使用的序列化与反序列化工具与jdk的不同，所以在消息队列中看到的消息乱码。
+			解决问题：
+				Spring的消息对象的处理由org.springframework.amqp.support.converter.MessageConverter来处理的。而底层默认实现是jdk自带的消息序列化
+				工具<ObjectOutputStream>。
+				所以我们只需要修改MessageConverter类型的Bean即可，将ObjectOutputStream实现的序列化替换掉。
+				步骤：
+					1、在父工程中引入依赖<生产者消费者都需要用到>
+						<!--Rabbit序列化依赖-->
+						<dependency>
+							<groupId>com.fasterxml.jackson.dataformat</groupId>
+							<artifactId>jackson-dataformat-xml</artifactId>
+						</dependency>
+					2、在生产者所在服务创建配置类
+						<也可以直接在启动类中添加@Bean方法，因为启动类也是一个配置类>
+						@Configuration
+						public class SerializedConfig {
+							@Bean
+							public MessageConverter messageConverter() {
+								// 注意：MessageConverter：org.springframework.amqp.support.converter.MessageConverter;
+								return new Jackson2JsonMessageConverter();
+							}
+						}
+						// 此时可以测试以下发送消息后，在消息队列中的消息已经不是乱码。而是一个json类型的数据。
+					3、消费者所在服务创建配置类
+						@Configuration
+						public class SerializedConfig {
+							@Bean
+							public MessageConverter messageConverter() {
+								return new Jackson2JsonMessageConverter();
+							}
+						}
+			
+			测试：
+				上面5种消息模型总共简单分为3种方式实现的。
+					<1与2是使用事先准备好的消息队列，3是使用config类将消息队列与交换机绑定方式创建消息队列的，4与5是使用注解方式实现交换机与消息队列>
+				由于我们消息一旦发送就会被消费者消费掉，所以不能使用第三种方式实现测试用例，会被立刻消费掉，在MQ管理平台中就看不到了。
+				案例：
+					0. 在消费者的config类中创建一个test用的消息队列
+						@Bean
+						public Queue testQueue() {
+							return new Queue("object.queue");
+						}
+						
+					1. 消息发送
+						@Test
+						public void testObject() {
+							// 消息队列名称
+							String queueName = "object.queue";
+							// 消息
+							Map<String, Object> message = new HashMap<>();
+							message.put("name", "屈刘杰");
+							message.put("age", 23);
+							// 转换并发送
+							rabbitTemplate.convertAndSend(queueName, message);
+						}
+					
+					2. 在MQ控制平台查看存入消息队列中的map对象
+						我们发现：存入消息类型不是HashMap类型
+							simple.queue消息队列中存入的一条消息是一串乱码。
+							消息内容类型‘content_type:application/x-java-serialized-object’ <序列化后对象>。
+					
+					3. 测试消费者是否可以用map对象
+						@RabbitListener(queues = "object.queue")
+						public void listenerTestQueue(Map msg) {
+							System.out.println(msg.get("name"));			// 屈刘杰
+							System.out.println("消费者接收到fanout.queue1的消息：【" + msg.toString() + "】");
+							// 消费者接收到fanout.queue1的消息：【{name=屈刘杰, age=23}】
+						}
+						我们发现：
+							消费者使用Map类型接收正常。
 							
 			
+				
+				
+				
+				
+				
+				
+				
 
-			
 
 
 
