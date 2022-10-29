@@ -170,7 +170,7 @@ Spring框架概念
 	
 		@Controller与@RestController区别：
 			@Controller：配合视图解析器才能返回到指定页面。在对应的方法上配合@ResponseBody注解才能返回JSON，XML或自定义mediaType的内容到页面。
-			@RestController：相当于Controller和ResponseBod两者合并起来的作用，但是不能返回jsp页面。
+			@RestController：相当于Controller和ResponseBody两者合并起来的作用，但是不能返回jsp页面。
 	2、依赖注入的注释(赋值)
 		-> 简单类型注入
 			在类的成员变量属性上添加注解。无须添加setter方法，如果有setter方法，也可以将注解添加到setter上。

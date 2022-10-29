@@ -118,11 +118,14 @@ SpringBoot<约定大于配置>
 				语法结构：key:空格 value
 				例：
 					server:
-						port: 8081
+						port: 8081			// 如果修改为80端口，则在访问资源时就不需要添加端口了，Tomcat在没有端口的时候默认指定80端口
 	
 		-> yaml配置文件常见写法：
 			#普通的key-value
 			name: qlj
+			
+			#引用上面的值
+			name1: ${name}nb	 	#相当于：qljnb
 			
 			#对象
 			student:
@@ -139,6 +142,21 @@ SpringBoot<约定大于配置>
 				- pig
 			
 			arrayname: [cat,dog,pig]
+	
+	-> 简单成员变量的yaml值注入
+		// @Value("${name}")			// 简单key-value的注入。name表示yaml的key
+		// @Value("${student.name}")	// 对象属性的注入
+		// @Value("${arrayname[1]}")	// 数组元素的注入
+		private String name;			// 属性名不需要与yaml中的key对应
+		
+	-> 读取yaml文件中全部信息
+		@Autowired
+		private Environment env;
+		
+		// 取数据
+		env.getParameter("name")		// qlj
+		env.getParameter("student.name")		// qlj
+		
 		
 	-> 使用yaml配置文件注入实体类属性
 		不使用yaml配置文件注入：
@@ -730,7 +748,7 @@ day2-<springboot003>
 
 -----------------------------
 
--> 整合Druid数据源
+-> 整合Druid<德鲁伊>数据源
 	
 	-> 添加依赖
 		<!-- druid数据源 -->
@@ -739,7 +757,7 @@ day2-<springboot003>
 			<artifactId>druid</artifactId>
 			<version>1.2.8</version>
 		</dependency>
-        <!--log4j日志管理：还用druid时需要配置log4j-->
+        <!--log4j日志管理：使用druid时需要配置log4j-->
         <dependency>
             <groupId>log4j</groupId>
             <artifactId>log4j</artifactId>
@@ -851,6 +869,7 @@ day2-<springboot003>
 			</dependency>
 			<!--实体类构建-->
 			<dependency>
+			
 				<groupId>org.projectlombok</groupId>
 				<artifactId>lombok</artifactId>
 			</dependency>
@@ -990,7 +1009,146 @@ day2-<springboot003>
 					return "success delete";
 				}
 			}
-
+			
+-------------------------
+-> SpringBoot整合Mybatis-Plus
+	<官网：https://baomidou.com/>
+	Springboot整合Mybatis与MybatisPlus区别：
+		导入坐标不同；数据层实现简化。
+	1、导入坐标
+		① 方案一
+			在Spring官网的SpringBoot项目搭建时勾选不到<找不到>Mybatis-Plus的依赖。
+			所以使用阿里云的SpringBoot网址进行SpringBoot项目搭建。
+			Custom：https://start.aliyun.com
+			勾选：
+				MyBatis Plus Framework与mysql driver
+		② 方案二
+			找不到就自己手动加依赖。<构建项目时只勾选mysql驱动>
+			MyBatis Plus依赖在中央仓库中查找。
+				<!--MyBatis-Plus依赖-->
+				<dependency>
+					<groupId>com.baomidou</groupId>
+					<artifactId>mybatis-plus-boot-starter</artifactId>
+					<version>3.4.2</version>
+				</dependency>
+	
+	2、配置数据库
+		spring:
+			datasource:
+				#时区&编码
+				url: jdbc:mysql://localhost:3306/qlj_sql?serverTimezone=UTC&useUnicode=true&characterEncoding=utf-8
+				username: root
+				password: 123456
+				driver-class-name: com.mysql.cj.jdbc.Driver
+			
+	3、定义数据层接口与映射配置，继承BaseMapper
+		// BaseMapper<User>是依赖提供的，泛型中是自定义的实体类
+		@Mapper
+		public interface UserDao extends BaseMapper<User> {}		// BaseMapper已经自己实现了数据库的增删改查方法
+		
+		注意：如果数据层还想写其他操作，在大括号内直接按照之前Mybatis形式写即可，或者使用@Select()等注解形式。
+		
+	4、实体类名称、属性和数据表名、字段名名称映射问题
+		1、类名与属性名和数据表默认采用驼峰映射规则
+			表名：
+				MyUserTable对应的数据库表为my_user_table
+				TEMyUserTable对应表名为t_e_my_user_table
+			字段名：
+				属性studentNo对应字段名student_no
+		2、使用注解映射
+			@TableName("表名")：实体类名数据表名映射
+			@TableId("主键id名")：主键映射
+			@TableField("字段名")：属性与字段映射
+			@TableLogic：表字段逻辑处理注解（逻辑删除）
+		3、忽略映射字段时可以在实体类属性上使用以下注解：
+			@TableField(exist = false)：表示该属性不为数据库表字段，但又是必须使用的。
+			@TableField(exist = true)：表示该属性为数据库表字段。
+		
+		测试：
+			@Autowired
+			private UserDao userDao;
+			@Test
+			void userTest(){
+				userDao.selectById(2)		// selectById()是BaseMapper中的抽象方法
+			}
+		注意：
+			MyBatis-Plus是如何映射数据库的表？
+				MyBatis-Plus自动进行映射，使用实体类的名称<大写转小写>当作表明进行映射。
+				
+			如果实体类名与数据库表名不一致怎样处理？
+				在yaml文件中配置映射关系。
+					例：实体类User与数据库stu_user
+					
+					mybatis-plus:
+						global-config:
+							db-config:
+								table-prefix: stu_		// 给实体类的名称前拼接前缀
+		
+		4、条件查询
+			例：SELECT studentNo,studentName,loginPwd,sex FROM t_student WHERE sex='男'
+				// 条件查询
+				@Test
+				void testGetSex() {
+					QueryWrapper<Student> qw = new QueryWrapper<>();
+					//qw.ge("sex", "男");
+					qw.eq("sex", "男");
+					List<Student> list = studentMapper.selectList(qw);
+					System.out.println(list);
+				}
+			注意：条件查询的封装需要写字段名<数据库的字段名，不是实体类属性名>
+				如何将字段名修改成属性名，让mp去映射。
+					例：
+						@Test
+						void testGetSex2() {
+							LambdaQueryWrapper<Student> qw = new LambdaQueryWrapper<>();
+							// 注意参数不能为null，可以if判断进入
+							qw.eq(Student::getSex, "男");
+							List<Student> list = studentMapper.selectList(qw);
+							System.out.println(list);
+						}
+		
+	
+	补充知识：
+		1、自增id新增
+			mybatisplus默认的id创建是通过‘雪花算法’创建的id，然后插入到数据表中。
+			问题：如果数据表id本身就是自增列，此时新增就会报错。<因为生成的id插入异常(参数匹配失败)>
+			解决：在yaml中进行配置导入id使用数据库自增。
+				配置：
+					mybatis-plus.global-config.db-config.id-type=auto
+				<设置后，新增就不需要写id了，数据库自动添加>
+	
+		2、mybatisplus数据操作日志开启
+			注意：服务器上部署时不要开启，日志量会爆涨，测试使用即可
+			配置：
+				mybatis-plus.configuration.log-impl=org.apache.ibatis.logging.stdout.StdOutImpl			// 标准输出
+		
+		3、mybatis-plus分页
+			分页操作实质是在查询的时候，在查询语句后添加limit。<mybatisplus使用拦截器进行实现，所以需要配置拦截器>
+			案例：
+				① test语句
+					@Autowired
+					private StudentMapper studentMapper;		// 数据层接口
+					@Test
+					void testGetPage(){
+						// 分页操作实质是在查询的时候，在查询语句后添加limit。<mybatisplus使用拦截器进行实现，所以需要配置拦截器>
+						// 分页查询条件<当前页,每页显示条数>
+						IPage page = new Page(1,3);
+						studentMapper.selectPage(page,null);		// null 实际上是条件查询的条件包装类，无条件就是null
+						// 获取查询出的分页数据
+						List list = page.getRecords();
+						System.out.println(list);
+					}
+				② config拦截器
+					@Bean
+					public MybatisPlusInterceptor mybatisPlusInterceptor() {
+						// 创建MybatisPlus拦截器对象
+						MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
+						// 添加拦截器内容<分页拦截>
+						interceptor.addInnerInterceptor(new PaginationInnerInterceptor());
+						// 下面如果想要拦截其他信息可以继续addInnerInterceptor()......
+						return interceptor;
+					}
+			
 
 -------------------------
 -> SpringSecurity(安全管理)
@@ -1371,7 +1529,7 @@ day2-<springboot003>
 			使用不同的请求类型进行区分。<按照上面的常见行为后请求类型分类>
 		
 	使用：
-			@RequestMapping(value = "/users", method = RequestMethod.GET)
+		@RequestMapping(value = "/users", method = RequestMethod.GET)
 	    public String getUsers(){
 	        return "查询全部数据！";
 	    }
@@ -1444,8 +1602,20 @@ day2-<springboot003>
 				    }
 				}
 							  
-
-
+-> SpringBoot整合junit
+	SpringBoot创建项目会默认导入测试的依赖。
+		<!--单元测试-->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+		</dependency>
+	
+	注意：
+		默认情况下，Test类与启动类的package是相同的，虽然不在一块放，但必须是同classpath下。
+		如果Test类放错了位置就会报错。
+		当然放错位置也可以在@SpringBootTest后面添加注解属性。
+			@SpringBootTest(classes = SpringBootApplication.class)		// 属性值实际上就是启动类。<SpringBootApplication就是启动类名>
+	
 
 
 

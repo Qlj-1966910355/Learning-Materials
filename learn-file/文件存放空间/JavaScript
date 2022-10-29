@@ -23,7 +23,7 @@
 ->js代码的使用
 	1、行内式
 		在句柄后执行：onclick="window.alert('确认失败!')"
-		例：<inputtype="button"value="确认"onclick="window.alert('确认失败!')"/>
+		例：<input type="button" value="确认" onclick="window.alert('确认失败!')"/>
 	2、内嵌代码块
 		在html中写<scripttype="text/javascript">js代码块</script>
 		例：	<scripttype="text/javascript">
@@ -33,8 +33,8 @@
 	3、外联js文件
 		新建js为后缀的JavaScript文件，然后引入到html中。
 		例：引入
-			<scripttype="text/javascript"src="js/js01.js"></script>
-			//引入js文件时不能在标签内编写内容，但可以在引入下面再继续写脚本块
+			<scripttype="text/javascript" src="js/js01.js"></script>
+			// 引入js文件时不能在标签内编写内容，但可以在引入下面再继续写脚本块
 	注意：js代码遵循自上而下顺序逐行执行
 	
 ->变量
