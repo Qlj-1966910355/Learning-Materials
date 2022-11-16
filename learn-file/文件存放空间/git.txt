@@ -343,9 +343,20 @@ git
 					重新打开idea --> 打开时在初始页面(选择打开项目的页面) --> 点击‘get from version control’ --> 选择git、粘贴ssh链接、项目位置
 					--> 克隆
 			
-			
-	7、idea集成gitlab
-		https://blog.csdn.net/qq_65224479/article/details/124899558
+
+-> GitLab
+	-> 下载安装
+		官网：https://about.gitlab.com/
+		安装说明：https://gitlab.cn/install/
+		略。主要是了解如何使用gitlab。
+
+
+		
+		
+		
+		
+		
+		
 		
 		
 	
