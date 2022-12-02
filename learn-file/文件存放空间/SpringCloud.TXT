@@ -14,11 +14,11 @@
 	1、Dubbo模式
 		基于Dubbo的技术体系；服务接口采用Dubbo协议标准；服务调用采用Dubbo方式
 	2、SpringCloud+Feign
-		使用SpringClould技术栈；服务接口采用Restful风格；服务调用采用Feign方式
+		使用SpringCloud技术栈；服务接口采用Restful风格；服务调用采用Feign方式
 	3、SpringCloudAlibaba+Feign
 		使用SpringClouldAlibaba技术栈；服务接口采用Restful风格；服务调用采用Feign
-	4、SpringClouldAlibaba+Dubbo
-		使用SpringClouldAlibaba技术栈；服务接口采用Dubbo协议标准；服务调用采用Dubbo方式
+	4、SpringCloudAlibaba+Dubbo
+		使用SpringCloudAlibaba技术栈；服务接口采用Dubbo协议标准；服务调用采用Dubbo方式
 		
 -> SpringCloud功能组件
 	1、服务注册发现<Eureka、Nacos、Consul>
@@ -346,7 +346,7 @@
 	
 	-> 将服务注册到Nacos中
 		1、在父工程的pom文件中添加spring-cloud-alibaba的管理依赖
-			 <!--引入spring-cloud-alibaba管理依赖-->
+			<!--引入spring-cloud-alibaba管理依赖-->
             <dependency>
                 <groupId>com.alibaba.cloud</groupId>
                 <artifactId>spring-cloud-alibaba-dependencies</artifactId>
@@ -1000,9 +1000,9 @@
 		4、根据新的请求路径获取请求资源。
 		
 	-> 路由route的组成部分
-		id：路由的id
-		uri：匹配路由的转发地址
-		predicates：配置该路由的断言，通过PredicateDefinition类进行接收设置。
+		id：路由的id，区别于其他route
+		uri：匹配路由的转发地址，即客户端请求最终被转发到的微服务
+		predicates：配置该路由的断言，通过PredicateDefinition类进行接收设置<用来进行条件判断，只有断言都返回真，才会真正的执行路由>
 		order：路由的优先级，数字越小，优先级越高
 		Filter：过滤器，过滤一些请求并处理，满足则转发
 		
