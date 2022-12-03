@@ -966,7 +966,7 @@ spring:
 
 > 具体可以查看：Nacos集群搭建.md
 
-#### 1. 步骤
+#### 1. 集群搭建步骤
 
 - **搭建Mysql集群并初始化数据库表**
 
@@ -2002,17 +2002,985 @@ spring:
 			maxAge: 360000 # 这次跨域检测的有效期
 ```
 
+### 十、微服务异步通讯<==RabbitMQ==> 
+
+#### 1. 同步与异步通讯
+
+##### 1.1 同步通讯
+
+同步简单的讲：指你要做一件事，等着他完成后，然后再做下一件事。<feign发送请求通讯时就是同步执行>
+
+消费者服务器向提供者服务器发送通讯，消费者服务器的其他请求通讯不能执行，只能等服务提供者响应完成后，其他通讯请求才能发送。
+
+优点：
+
+- 时效性较强，可以立即得到结果
+
+缺点：
+
+- 耦合度高。
+
+  服务之间直接发送请求通讯时，如果新添加一个业务服务，就造成了每次加入新业务就需要修改支付服务里面原先的代码。存在耦合度高的问题。
+
+- 性能和吞吐能力下降。
+
+  当用户量大，服务通讯只允许同步，耗时较长，并发量大的时候处理的非常慢。就存在一个性能和吞吐的能力下降的问题。
+
+- 存在额外的资源消耗。
+
+  其他通讯请求也想与这个服务通讯时，在等待的时候会占用cpu与内存，造成额外资源消耗。
+
+- 有级联失败问题。
+
+  当多个服务组成一个业务时，如果一个服务挂掉，则此时消费者服务的通讯请求阻塞，不能及时清理，占用内存资源。虽然消费者服务还可以访问其他服务，但是用户量巨大，不停的给挂掉的服务发送请求，最终导致消费者服务资源耗尽，其他服务也不能接收到任务请求了。
+
+##### 1.2 异步通讯
+
+异步指你要发起一件事，但不太关心他做没做完，继续自己的。
+
+消费者服务不关心提供者服务是否响应，消费者服务中的其他请求依然可以进行发送。
+
+<实际上与Ajax的效果一样>
+
+**异步调用方案：**
+
+> 异步通讯最常见的实现就是事件驱动模式。
+>
+> 在同步通讯中，服务间通讯是直接通讯，并且存在先后。
+>
+> 所以我们在此引入一个**Broker**，Broker就是**事件代理者**。服务间通讯直接交给Broker，**由Broker统一进行管理**。
+>
+> 下游服务(提供者)通过去订阅Broker<订阅事件>，接收请求并处理，处理后再推送给Broker。
+>
+> ==**Broker作用：**==
+>
+> - **接收Producer(生产者)发过来的消息**、**处理Consumer(消费者)的消费消息请求**、**消息的持久化存储**、**消息的HA机制以及服务端过滤功能**等
+
+> 注意：此处在消息队列中的生产者与消费者，不等同于上面提到的提供者与消费者。
+>
+> - 提供者与消费者：
+>
+>   基于服务器中的资源。<在远程调用时这样称呼>
+>
+> - 生产者与消费者：
+>
+>   基于请求消息的，生产者就是请求的发送者，生产消息的。而消费者则是接收消息的。
+
+优点：
+
+- 耦合度极低，每个服务都可以灵活插拔，可替换。
+
+- 性能提升，吞吐量提高。
+
+- 故障隔离<服务没有强依赖，不担心级联失败问题>。
+
+- 流量消峰。
+
+  当用户请求量较多时，消息的生产者需要给消费者发送请求，而消费者每次处理的请求量有限，此时Broker充当缓存作用，消费者可以处理几个就获取几个。
+
+缺点：
+
+- 依赖Broker的可靠性、安全性、吞吐能力。<一旦Droker挂掉，整个微服务承受不了高并发请求>
+- 架构复杂了，业务没有明显的流程线，不好追踪管理。
+
+#### 2. 常见MQ
+
+MQ(MessageQueue)，消息队列。存放消息的队列。<也就是上面提到的Broker>。
+
+常见MQ：RabbitMQ、ActiveMQ、RocketMQ、Kafka
+
+<img src="./img/SpringCloud/image-20221203104648076.png" alt="image-20221203104648076" style="zoom:80%;" />
+
+#### 3. RabbitMQ
+
+> 官网：https://www.rabbitmq.com/
+
+RabbitMQ是基于Erlang语言开发的开源消息通信中间件。
+
+RabbitMQ 整体上是一个**生产者与消费者模型**，主要**负责接收**、**存储和转发消息**。
+
+##### 3.1 下载安装
+
+- 下载镜像
+
+  在远程镜像仓库中pull
+
+  ```shell
+  docker pull rabbitmq:3-management
+  ```
+
+  使用事先下载好的mq.tar文件
+
+  ```shell
+  # 将mq.tar压缩文件上传到/tmp中<临时文件存放目录>
+  # 在命令行中执行命令：
+  	cd /tmp
+  	docker load -i mq.tar
+  # 查看镜像
+  	docker images			# rabbitmq:3-management
+  ```
+
+- 首次安装MQ
+
+  ```shell
+  docker run \
+  	-e RABBITMQ_DEFAULT_USER=qlj \			# 用户名
+  	-e RABBITMQ_DEFAULT_PASS=123321 \		# 密码		<访问或登录管理平台MQ时需要>
+  	--name mq \							  # 容器名称
+  	--hostname mq1 \						# 主机名<单机部署也可以不配，但是集群部署就要配置>
+  	-p 15672:15672 \						# 端口映射	<MQ管理平台的端口>
+  	-p 5672:5672 \							# 端口映射 <消息通讯端口>
+  	-d \									# 后台运行
+  	rabbitmq:3-management					# 镜像名称
+  ```
+
+- 查看安装成功
+
+  查看容器是否启动：docker ps		<查看运行中的容器>
+
+  > 退出/运行容器：docker stop/start 容器名称
+
+- 登录MQ管理平台
+
+  http://192.168.10.128:15672/		<注意：端口号是管理平台的端口号>
+
+##### 3.2 RabbitMQ结构
+
+RabbitMQ就是一个Broker，RabbitMQ将整个Broker划分成了多个Vhost(Virtual Host)，Vhost可以理解为一个个逻辑空间，它们之间相互隔离。
+
+<一般生产与消费过程只会使用一个Vhost>
+
+- **Vhost**构成
+
+  Vhost由多个exchange和queue构成。
+
+  ![image-20221203110909763](img/SpringCloud/image-20221203110909763.png)
+
+  - **Exchange**
+
+    `消息交换器`。用来接收生产者发送的消息并将这些消息路由给服务器中的队列(queue)。它指定消息按什么规则，路由到哪个队列。
+
+  - **Queue**
+
+    `消息的载体`，每个消息都会被投到一个或多个队列，等待消费者连接到这个队列将其取走。它是消息的容器，也是消息的终点。
+
+  - **routing Key**
+
+    `路由关键字`，exchange根据这个关键字进行消息投递。
+
+  - **binding key**
+
+    用于消息队列和交换器之间的关联。
+
+    一个绑定就是基于路由键将交换器和消息队列连接起来的路由规则，所以可以将交换器理解成一个由绑定构成的路由表。
+
+    它的作用就是把exchange和queue按照路由规则绑定起来。
+
+##### 3.3 常见消息模型
+
+> 官网上为我们提供了7种消息模型。https://www.rabbitmq.com/getstarted.html
+
+常见的5种消息模型分类：
+
+- ==无交换机==
+
+  - **基本消息队列**<BasicQueue>
+
+    结构：生产者P、消息队列Queue、消费者C(单个消费者)
+
+    - 生产者P：消息发送者，将消息发送到队列Queue中
+    - 消息队列Queue：负责接收并缓存信息
+    - 消费者C：订阅队列，处理队列中的消息
+
+    <img src="img/SpringCloud/image-20221203112938160.png" alt="image-20221203112938160" style="zoom:60%;" />
+
+  - 工作消息队列<WorkQueue>
+
+    结构：生产者P、消息队列Queue、消费者C(多个消费者)
+
+    <img src="img/SpringCloud/image-20221203112919913.png" alt="image-20221203112919913" style="zoom:60%;" />
+
+- ==发布订阅==<Publish、Subscribe>，根据交换机类型分为三种
+
+  - **广播**<Fanout Exchange>
+
+    结构：生产者P、交换机Exchange、消息队列Queue、消费者C(多个消费者)
+
+    <img src="img/SpringCloud/image-20221203112856163.png" alt="image-20221203112856163" style="zoom:60%;" />
+
+  - **路由**<Direct Exchange>
+
+    结构：生产者P、交换机Exchange、消息队列Queue、消费者C(多个消费者)
+
+    <img src="img/SpringCloud/image-20221203112804628.png" alt="image-20221203112804628" style="zoom:60%;" />
+
+  - **主题**<Topic Exchange>
+
+    结构：生产者P、交换机Exchange、消息队列Queue、消费者C(多个消费者)
+
+    <img src="img/SpringCloud/image-20221203112632595.png" alt="image-20221203112632595" style="zoom:60%;" />
+
+    ![image-20221203112525644](img/SpringCloud/image-20221203112525644.png)
 
 
 
+##### 3.4 直连模式实现<基本消息队列>
+
+- 生产者发送消息
+
+  步骤：
+
+  - 建立连接<生产者与MQ建立连接，在连接工厂中获取连接>
+
+    ① 设置连接参数，分别是：主机名、端口号、vhost(虚拟主机)、用户名、密码
+
+    ② 建立连接<建立连接后，管理平台connections中就存在一个连接>
+
+  - 创建通道Channel<通道创建后，管理平台channels中就会存在一个通道>
+
+  - 创建队列<创建消息队列，管理平台queues就存在一个消息队列>
+
+  - 发送消息<消息发送后，在管理平台进入指定的消息队列中，get message 查看发送的消息>
+
+  - 关闭通道和连接<关闭后管理平台就不存在连接与通道了>
+
+  案例：
+
+  ```java
+  public void testSendMessage() throws IOException, TimeoutException {
+  	// 1.建立连接<生产者与MQ建立连接，在连接工厂中获取连接>
+  	ConnectionFactory factory = new ConnectionFactory();
+  	// 1.1.设置连接参数，分别是：主机名、端口号、vhost、用户名、密码
+  	factory.setHost("192.168.10.128");
+  	// MQ消息通讯端口<不是MQ管理平台的端口>
+  	factory.setPort(5672);
+  	// 虚拟主机<在MQ管理平台中的admin中查看虚拟主机>
+  	factory.setVirtualHost("/");
+  	// MQ用户名
+  	factory.setUsername("qlj");
+  	// 密码
+  	factory.setPassword("123321");
+  	// 1.2.建立连接<建立连接后，管理平台connections中就存在一个连接>
+  	Connection connection = factory.newConnection();
+  
+  	// 2.创建通道Channel<通道创建后，管理平台channels中就会存在一个通道>
+  	Channel channel = connection.createChannel();
+  
+  	// 3.创建队列<创建消息队列，管理平台queues就存在一个消息队列>
+  	String queueName = "simple.queue";
+  	channel.queueDeclare(queueName, false, false, false, null);
+  
+  	// 4.发送消息<消息发送结束后，在管理平台进入指定的消息队列中，get message 查看发送的消息>
+  	String message = "hello, rabbitmq!";
+  	channel.basicPublish("", queueName, null, message.getBytes());
+  	System.out.println("发送消息成功：【" + message + "】");
+  
+  	// 5.关闭通道和连接<关闭后管理平台就不存在连接与通道了>
+  	channel.close();
+  	connection.close();
+  }
+  
+  ```
+
+  
+
+- 消费者订阅接收处理消息
+
+  步骤：
+
+  - 建立连接
+
+    ① 设置连接参数，分别是：主机名、端口号、vhost(虚拟主机)、用户名、密码
+
+    ② 建立连接
+
+  - 创建通道Channel
+
+  - 创建队列
+
+    为什么生产者创建了消息队列，这里又创建了一次消息队列？
+
+    - 原因：生产者与消费者启动顺序不确定，如果消费者先启动，保证消息队列一定存在。
+    - 注意：如果生产者优先创建了消息队列，此处不会重复创建的，除非消息队列名称不一致。
+
+  - 订阅消息<Consume：消费消息>
+
+    ```java
+    /*
+     queueName：指定的消息队列
+     true：是否自动确认消息已经消费，如果为false则需要手动确认消费信息。
+     new DefaultConsumer(channel){}：消费消息的行为
+     	handleDelivery()：相当于一个回到函数。一旦指定的消息队列中有个消息，这个方法就会被触发调用。<异步执行>
+     	<实际上就是实现封装好消费消息的行为，然后将这个消费行为挂到消息队列上，将来消息队列中一旦有了消息，这个消费	  行为就会触发>
+     	body：消息体，字节数组。生产者发送到RabbitMQ后就变成了字节数组。
+    */
+    String basicConsume(String queue, boolean autoAck, Consumer callback)   // 订阅消息方法
+    ```
+
+  - 处理消息<消息被接受执行后会立即销毁，控制平台在消息队列中就看不到这条消息>
+
+    注意：处理消息的方法是回调执行的，不是立即必须执行，相当于挂起状态。而挂起后不能影响后续代码执行，所以方法一定是异步的。
+
+  ```java
+  public static void main(String[] args) throws IOException, TimeoutException {
+  	// 1.建立连接
+  	ConnectionFactory factory = new ConnectionFactory();
+  	// 1.1.设置连接参数，分别是：主机名、端口号、vhost、用户名、密码
+  	factory.setHost("192.168.10.128");
+  	factory.setPort(5672);
+  	factory.setVirtualHost("/");
+  	factory.setUsername("qlj");
+  	factory.setPassword("123321");
+  	// 1.2.建立连接
+  	Connection connection = factory.newConnection();
+  
+  	// 2.创建通道Channel
+  	Channel channel = connection.createChannel();
+  
+  	// 3.创建队列
+  	/**
+  	 * 为什么生产者创建了消息队列，这里又创建了一次消息队列？
+  	 *  原因：生产者与消费者启动顺序不确定，如果消费者先启动，保证消息队列一定存在。
+  	 *  注意：如果生产者优先创建了消息队列，此处不会重复创建的，除非消息队列名称不一致。
+  	 */
+  	String queueName = "simple.queue";
+  	channel.queueDeclare(queueName, false, false, false, null);
+  
+  	// 4.订阅消息<Consume：消费消息>
+  	/**
+  	 * channel.basicConsume()   // 订阅消息方法
+  	 * 参数：
+  	 *  queueName：指定的消息队列
+  	 *  true：是否自动确认消息已经消费，如果为false则需要手动确认消费信息。
+  	 *  new DefaultConsumer(channel){}：消费消息的行为
+  	 *      handleDelivery()：相当于一个回调函数。一旦指定的消息队列中有个消息，这个方法就会被触发调用。<异步执行>
+  	 *      <实际上就是事先封装好消费消息的行为，然后将这个消费行为挂到消息队列上，将来消息队列中一旦有了消息，这个消费行为就会触发>
+  	 *      参数：
+  	 *          body：消息体，字节数组。生产者发送到RabbitMQ后就变成了字节数组。
+  	 */
+  	channel.basicConsume(queueName, true, new DefaultConsumer(channel){
+  		@Override
+  		public void handleDelivery(String consumerTag, Envelope envelope,
+  								   AMQP.BasicProperties properties, byte[] body) throws IOException {
+  			// 5.处理消息<消息被接受执行后会立即销毁，控制平台在消息队列中就看不到这条消息>
+  			String message = new String(body);
+  			System.out.println("接收到消息：【" + message + "】");
+  		}
+  	});
+  	// 注意：上面的方法是回调执行的，不是立即必须执行，相当于挂起状态。而挂起后不能影响后续代码执行，所以方法一定是异步的。
+  	System.out.println("等待接收消息。。。。");
+  }
+  
+  ```
+
+##### 3.5 SpringAMQP
+
+- AMQP
+
+  Advanced Message Queuing Protocol(高级消息队列协议)。
+
+  是用于应用程序或应用程序之间传递业务消息的开放标准。
+
+  该协议与语言和平台无关，更符合微服务中独立性的要求。
+
+- Spring AMQP
+
+  > 网站：https://spring.io/projects/spring-amqp
+
+  是基于AMQP协议定义的一套API规范，提供了模板来发送和接收消息。
+
+  包含两个部分：
+
+  - spring-amqp是基础抽象
+  - spring-rabbit是底层默认实现
+
+  功能：
+
+  - 用于异步处理入站消息的监听器容器
+
+  - 用于发送和接收消息的RabbitTemplate
+  - RabbitAdmin用于自动声明队列、交换和绑定<自动创建队列>
+
+##### 3.6 使用SpringAMQP实现RabbitMQ消息模型
+
+> **注意：**以下5种消息发送都采用RabbitTemplate进行发送消息的。<使用@Autowired>
+
+==**<font color="red">无交换机(消息即用即删)</font>**==
+
+###### 3.6.1 直连模式<基本消息队列>
+
+步骤：
+
+- 引入spring-amqp的依赖。
+
+  由于我们是微服务工程，直接在父工程中引入依赖
+
+  ```xml
+  <!--AMQP依赖，包含RabbitMQ-->
+  <dependency>
+  	<groupId>org.springframework.boot</groupId>
+  	<artifactId>spring-boot-starter-amqp</artifactId>
+  </dependency>
+  ```
+
+- 在生产者中利用RabbitTemplate发送消息到消息队列中
+
+  - 在生产者中的yaml中配置mq连接信息
+
+    ```yaml
+    spring:
+      rabbitmq:
+        host: 192.168.10.128    #mq运行服务器地址
+        port: 5672  #端口
+        virtual-host: /   # 虚拟主机
+        username: qlj   # 用户名
+        password: 123321    # 密码
+    ```
+
+  - 编写消息发送程序
+
+    下面使用单元测试做消息的发送，实际业务在service中写的
+
+    ```java
+    /**
+     * Runner是Junit的运行器，即运行测试用例的工具。
+     *  在测试类之上，使用@RunWith()注解为这个类指定一个特定的Runner。当我们没有指定@RunWith()的时候，
+     * 会自动使用Junit的默认Runner——BlockJunit4ClassRunner。
+     */
+    //@RunWith(SpringRunner.class)
+    @SpringBootTest
+    public class SpringAmqpTest {
+    	@Autowired
+    	private RabbitTemplate rabbitTemplate;
+    
+    	@Test
+    	void basicMessageSend(){
+    		// 消息队列名称
+    		String queueName = "simple.queue";
+    		// 消息
+    		String message = "hello,spring amqp!";
+    		// 转换并发送
+    		rabbitTemplate.convertAndSend(queueName, message);
+    	}
+    }
+    
+    ```
+
+    > 注意：queueName这个消息队列是前面传统发送消息时创建的。
+
+- 在消费者中编写消费逻辑，绑定消息队列。
+
+  <之前的项目中已经创建了一个消息队列，此处先使用这个消息队列(simple.queue)>
+
+  - 在消费者的yaml中配置mq连接
+
+    ```yaml
+    spring:
+      rabbitmq:
+        host: 192.168.10.128    #mq运行服务器地址
+        port: 5672  #端口
+        virtual-host: /   # 虚拟主机
+        username: qlj   # 用户名
+        password: 123321    # 密码
+    ```
+
+  - 在消费者中新建一个类，编写消费逻辑<在src中>
+
+    ```java
+    @Component
+    public class SpringAmqpRabbitListener {
+    	@RabbitListener(queues = "simple.queue")
+    	public void listenerSimpleQueue(String msg) {
+    		System.out.println("接收消息：" + msg);
+    	}
+    }
+    ```
+
+  - 启动服务，启动成功时就会执行listenerSimpleQueue()方法。
+
+    原因：
+
+    在生产者中，我们已经发送了一次消息，并且消息存放在了simple.queue队列中。
+
+    而被@RabbitListener(queues = "simple.queue")注解标注后，当在指定的消息队列中一旦发现消息，就会自动执行被标注的方法。
+
+    方法形参就是接收消息内容，方法体用于消费者逻辑编写。
+
+    注意：
+
+    消息被消费后就会从消息队列中删除。
+
+###### 3.6.2 工作消息队列(WorkQueue)
+
+作用：提高消费者处理消息的速度，避免消息队列消息堆积。
+
+特点：消息队列后可以有多个消费者。
+
+> **注意**：在基本消息队列中，消息一旦被消费就会立即被删除，所以消息队列后只能有一个消费者订阅。
+>
+> **场景**：当生产者生产消息量较大时，比如1s发送100个消息，而消费者服务只能一个一个进行处理，1s只能处理20个消息，此时消息就会滞留在消息队列中，最终内存被占满。<所以我们需要多个消费者进行消费消息>
+
+例：工作消息队列并没有出现新的API，在基本消息队列的基础上进行多消费者更改
+
+模拟WorkQueue，实现一个队列绑定多个消费者。
+
+- 引入spring-amqp的依赖。
+
+- 编写消息发送程序<模拟消息发送50条>
+
+  ```java
+  // 工作消息队列发送<消息队列绑定多个消费者，避免消息堆积>
+  @Test
+  public void workMessageSend() throws InterruptedException {
+  	// 消息队列名称
+  	String queueName = "simple.queue";
+  	// 消息
+  	String message = "hello,spring amqp_";
+  	for (int i = 1; i <= 50; i++) {
+  		// 转换并发送
+  		rabbitTemplate.convertAndSend(queueName, message + i);
+  		Thread.sleep(20);		// 让程序执行慢一点
+  	}
+  }
+  ```
+
+  > **注意**：先不要运行，让消费者服务先运行。<消费者服务启动后，生产者生产消息后会立即被消费者获取到并处理>
+
+- 配置mq地址；新建一个类，编写消费逻辑
+
+  - yaml配置
+
+    ```yaml
+    spring:
+      rabbitmq:
+    	host: 192.168.10.128    #mq运行服务器地址
+    	port: 5672  #端口
+    	virtual-host: /   # 虚拟主机
+    	username: qlj   # 用户名
+    	password: 123321    # 密码
+    	listener:
+    	  simple:
+    		prefetch: 1   # 消息预期上限
+    ```
+
+  - 编写消费者处理类
+
+    ```java
+    /**
+     * 工作消息队列接收
+     * <创建了两个消费者，它们的能力不同，消费者1每秒处理50条消息，消费者2每秒处理5条消息>
+     * <测试：两个消费者消费消息是否按照自身能力大小进行消费，也就是说是否按照能力越大消费越多>
+     * @param msg 消息内容
+     * @throws InterruptedException
+     * <结果：默认情况下多个消费者拿到的消息量相同，与能力大小无关></>
+     * <原因：
+     *  默认采用‘消息预取机制’。
+     *  	生产者发送50条消息时，消息队列会先将消息进行投递，不管消费者能力大小或者能不能执行，提前将消息一人一个的
+     *    方式分配给消费者(所以出现奇数位消息与偶数位消息分别由两个消费者执行)。而处理能力小的消费者就会执行很慢。
+     *  >
+     *  <解决：消息预取机制默认预取上限是无穷。有多少分配多少。通过yaml进行配置预期上限。
+     *      listener.simple.prefetch: 1     // 预期上限为1
+     *  >
+     */
+    @RabbitListener(queues = "simple.queue")
+    public void listenerSimpleQueue1(String msg) throws InterruptedException {
+    	System.out.println("workqueue2接收消息：【" + msg + "】" + LocalTime.now());
+    	Thread.sleep(20);
+    }
+    @RabbitListener(queues = "simple.queue")
+    public void listenerSimpleQueue2(String msg) throws InterruptedException {
+    	// err：表示输出为红色<为了与上面的区分>
+    	System.err.println("workqueue2...接收消息：【" + msg + "】" + LocalTime.now());
+    	Thread.sleep(200);
+    }
+    ```
+
+    
+
+==**<font color="red">发布订阅模式<有交换机></font>**==
+
+前面两个模板案例中的消息在发送后接收就会被删除。不能实现同一条消息推送给多个消费者的业务。
+
+实现方式：
+
+​	添加交换机。<在生产者发送消息给消息队列间添加一个交换机>
+
+​	<注意：交换机Exchange负责的是消息的路由，并不是存储，路由失败时消息就会丢失，发不到消息队列中>
+
+常见交换机：
+
+- Fanout：广播
+- Direct：路由
+- Topic：话题
+
+交换机作用：
+
+- 接收生产者发送的消息；
+- 将消息按照规则路由到与之绑定的队列；
+- 不能缓存消息，路由失败消息丢失；
+
+> **区别：**
+>
+> - fanoutexchange：将消息路由到每个被绑定的消息队列
+> - directexchange：根据规则路由到指定消息队列<存在routingkey与bindingkey对应关系>
+> - topicexchange：与direct类似，区别在于routingkey必须由多个单词组成，单词之间必须以'.'分隔，同时bindingkey可以使用通配符代替。
+
+###### 3.6.3 Fanout广播消息模型
+
+之所以称之为广播，是因为交换机在路由消息时，是将消息路由到与之绑定的所有消息队列中的，所以称作广播。
+
+步骤：
+
+- 消息接收
+
+  我们先将消费者配置完成并启动，生产者一旦发送消息就会接收。
+
+  - 首先需要创建配置类config
+
+    ① 创建交换机对象
+
+    ② 创建消息队列对象<多个消息队列>
+
+    ③ 绑定交换机与消息队列<一个交换机可以绑定多个消息队列>
+
+  - 创建消费者消费业务，实现消费逻辑
+
+    <每个消息队列都可以有一个或多个消费者>
+
+  - 启动服务，MQ管理平台检验交换机绑定是否成功
+
+    启动成功后，管理平台中的Exchanges栏就会存在创建好的交换机名称(itcast.fanout)。
+
+    进入Bindings中就可以看到被绑定在交换机上的所有消息队列。
+
+- 消息发送
+
+  - 指定交换机名称
+  - 编辑消息并发送
+
+  注：我们将交换机与消息队列的创建与绑定都放在了消费者所在的服务中。与之前在生产者所在服务创建消息队列不同。
+
+案例：
+
+<生产者发送一条消息，两个消费者同时接收并显示>
+
+- 消息发送<依然在测试类中发送消息(方便)>
+
+  - 创建配置类，创建交换机与消息队列并绑定。
+
+    ```java
+    // 下面配置类创建了一个交换机itcast.fanout，两个消息队列fanout.queue1、fanout.queue2
+    @Configuration
+    public class FanoutConfig {
+    	// 交换机fanout
+    	@Bean
+    	public FanoutExchange fanoutExchange() {
+    		return new FanoutExchange("itcast.fanout");
+    	}
+    	// 消息队列queue1
+    	@Bean
+    	public Queue fanoutQueue1() {
+    		return new Queue("fanout.queue1");
+    	}
+    	// 交换机与消息队列绑定
+    	@Bean
+    	public Binding fanoutBanding1(Queue fanoutQueue1, FanoutExchange fanoutExchange) {
+    		// 将消息队列fanoutQueue1绑定到fanoutExchange交换机上
+    		return BindingBuilder.bind(fanoutQueue1).to(fanoutExchange);
+    	}
+    	// 消息队列queue1
+    	@Bean
+    	public Queue fanoutQueue2() {
+    		return new Queue("fanout.queue2");
+    	}
+    	// 交换机与消息队列绑定
+    	@Bean
+    	public Binding fanoutBanding2(Queue fanoutQueue2, FanoutExchange fanoutExchange) {
+    		// 将消息队列fanoutQueue2绑定到fanoutExchange交换机上
+    		return BindingBuilder.bind(fanoutQueue2).to(fanoutExchange);
+    	}
+    }
+    ```
+
+  - 创建接收消息逻辑并启动
+
+    ```java
+    // 每个消息队列都可以绑定一个或多个消费者，下面两个消费者方法分别绑定了不同
+    @RabbitListener(queues = "fanout.queue1")
+    public void listenerFanoutQueue1(String msg) {
+    	System.out.println("消费者接收到fanout.queue1的消息：【" + msg + "】");
+    }
+    @RabbitListener(queues = "fanout.queue2")
+    public void listenerFanoutQueue2(String msg) {
+    	System.out.println("消费者接收到fanout.queue2的消息：【" + msg + "】");
+    }
+    ```
+
+- 消息发送<依然在测试类中发送消息(方便)>
+
+  ```java
+  // 与之前消息发送不同的是需要按照交换机名称发送，不需要知道消息队列名称
+  @Test
+  public void fanoutMessageSend() {
+  	// 交换机名称
+  	String exchangeName = "itcast.fanout";
+  	// 消息
+  	String message = "hello,fanoutMessage...";
+  	// 发送消息
+  	rabbitTemplate.convertAndSend(exchangeName, "",message);	// 第二个参数RoutingKey在后面路由交换机有具体讲解
+  }
+  ```
 
 
 
+###### 3.6.4 Direct路由消息模型
+
+DirectExchange(路由交换机)会将接收到的消息根据规则路由到指定的Queue。<与广播路由的区别就是路由规则>
+
+> **消息路由原理：**
+>
+> 每一个消息队列都与路由器设置一个BindingKey。
+>
+> 消息生产者发送消息时，指定消息的RoutingKey。
+>
+> 交换机将消息路由到BindingKey与消息RoutingKey一致的队列。
+>
+> <每个消息队列可以有多个BindingKey，只要路由器发送的Key存在于消息队列的BindingKey中，消息队列就能拿到消息>
+>
+> <当被绑定的消息队列上都包含某个BindingKey时，实际上就是广播交换机消息模式>
+>
+> **故：**
+>
+> 我们在交换机与消息队列绑定时会设置一个BindingKey，而生产者发送消息时会携带一个RoutingKey，如果消息队列的BindingKey中包含RoutingKey，则这条消息就会发送到被绑定的消息队列中。
+>
+> **注意：**在广播消息对列模式中，我们采用config配置类创建交换机与消息队列并绑定，而路由消息模式中我们直接使用注解进行创建绑定。
+
+<不需要写config类了>
+
+- 消息接收
+
+  ```java
+  /**
+   * 路由交换机模式消息接收
+   *  在广播消息对列模式中，我们采用config配置类创建交换机与消息队列并绑定，而路由消息模式中我们直接使用注解进行创建绑定
+   * @param msg 消息
+   */
+  @RabbitListener(bindings = @QueueBinding(
+  		// 消息队列创建
+  		value = @Queue(name = "direct.queue1"),
+  		// 交换机创建<默认类型就是Direct类型的交换机>
+  		exchange = @Exchange(name = "itcast.direct", type = ExchangeTypes.DIRECT),
+  		// BindingKey
+  		key = {"k1", "k2"}
+  ))
+  public void listenerDirectQueue1(String msg) {
+  	System.out.println("消费者接收到direct.queue1[k1,k2]的消息：【" + msg + "】");
+  }
+  @RabbitListener(bindings = @QueueBinding(
+  		value = @Queue(name = "direct.queue2"),
+  		exchange = @Exchange(name = "itcast.direct", type = ExchangeTypes.DIRECT),
+  		key = {"k1", "k3"}
+  ))
+  public void listenerDirectQueue2(String msg) {
+  	System.out.println("消费者接收到direct.queue2[k1,k3]的消息：【" + msg + "】");
+  }
+  ```
+
+  
+
+- 消息发送
+
+  ```java
+  @Test
+  public void directMessageSend() {
+  	// 交换机名称
+  	String exchangeName = "itcast.direct";
+  	// 消息
+  	String message = "hello_k2,DirectMessage...";
+  	// 发送消息
+  	rabbitTemplate.convertAndSend(exchangeName, "k2",message);		// 参数2就是routingkey
+  }
+  ```
+
+  > 注意：routingkey = k2时，只有消息队列direct.queue1拿到了这条消息。
+
+###### 3.6.5 Topic话题消息模式
+
+- 消息接收
+
+```java
+/**
+ * 话题交换机消息模型
+ *  Topic与DirectExchange类似，区别在于routingkey必须由多个单词组成，单词之间必须以'.'分隔。
+ *      例：routingkey = “china.news”
+ *  BindingKey可以使用通配符：
+ *      #：0个或多个单词
+ *      *：1个单词 <注意不是字符>
+ *  例如：bindingkey="china.news"   替代：bindingkey="china.*" | bindingkey="china.#"
+ *  routingkey与bindingkey对应关系：
+ *      例：
+ *          1、routingkey = "china.news" ==> bindingkey = "china.#"
+ *          2、routingkey = "china.weather" ==> bindingkey = "china.#"
+ *          3、routingkey = "japan.news" ==> bindingkey = "*.news"
+ *          4、routingkey = "china.news" ==> bindingkey = "*.news"
+ *      可以发现：1和2的routingkey首单词一致，可以匹配到china.#。
+ * @param msg 消息
+ */
+@RabbitListener(bindings = @QueueBinding(
+		// 消息队列
+		value = @Queue(name = "topic.queue1"),
+		// 话题交换机<注意更换交换机类型，默认是Direct>
+		exchange = @Exchange(name = "itcast.topic", type = ExchangeTypes.TOPIC),
+		// bindingkey
+		key = "china.#"
+))
+public void listenerTopicQueue1(String msg) {
+	System.out.println("消费者接收到topic.queue1的消息：【" + msg + "】");
+}
+@RabbitListener(bindings = @QueueBinding(
+		value = @Queue(name = "topic.queue2"),
+		exchange = @Exchange(name = "itcast.topic", type = ExchangeTypes.TOPIC),
+		key = "*.news"
+))
+public void listenerTopicQueue2(String msg) {
+	System.out.println("消费者接收到topic.queue2的消息：【" + msg + "】");
+}
+```
+
+- 消息发送
+
+```java
+// 话题交换机模式消息发送
+@Test
+public void topicMessageSend() {
+	// 交换机名称
+	String exchangeName = "itcast.topic";
+	// 消息
+	String message = "hello_china.news,TopicMessage...";
+	// 发送消息
+	rabbitTemplate.convertAndSend(exchangeName, "china.news",message);
+}
+```
+
+##### 3.7 RabbitTemplate序列化问题
+
+> **问题：**
+>
+> 使用SpringAMQP发送消息时，rabbitTemplate.convertAndSend()方法中接收的消息参数是Object类型，那么如果传入消息参数是一个java对象，消费者接收到消息是否可以正常使用这个对象？
+>
+> **答案：**
+>
+> MQ消息队列中不能查看java对象<被序列化>，但是消费者使用对应的类型接收时可以使用<反序列化>。
+>
+> **原因：**
+>
+> 与Redis的使用SpringDataRedis存取数据一样，java序列化与反序列化采用的工具一样<底层使用jdk自带的序列化>，所以消费者使用时正常。但是，Rabbit在将消息存储到消息队列中时，使用的序列化与反序列化工具与jdk的不同，所以在消息队列中看到的消息乱码。
+>
+> **解决问题：**
+>
+> Spring的消息对象的处理由org.springframework.amqp.support.converter.MessageConverter来处理的。而底层默认实现是jdk自带的消息序列化工具<ObjectOutputStream>。
+>
+> 所以我们只需要**修改MessageConverter类型的Bean**即可，将ObjectOutputStream实现的序列化替换掉。
+
+步骤：
+
+- 在父工程中引入依赖<生产者消费者都需要用到>
+
+  ```xml
+  <!--Rabbit序列化依赖-->
+  <dependency>
+  	<groupId>com.fasterxml.jackson.dataformat</groupId>
+  	<artifactId>jackson-dataformat-xml</artifactId>
+  </dependency>
+  ```
+
+- 在生产者所在服务创建配置类
+
+  也可以直接在启动类中添加@Bean方法，因为启动类也是一个配置类
+
+  ```java
+  @Configuration
+  public class SerializedConfig {
+  	@Bean
+  	public MessageConverter messageConverter() {
+  		// 注意：MessageConverter：org.springframework.amqp.support.converter.MessageConverter;
+  		return new Jackson2JsonMessageConverter();
+  	}
+  }
+  // 此时可以测试以下发送消息后，在消息队列中的消息已经不是乱码。而是一个json类型的数据。
+  ```
+
+- 消费者所在服务创建配置类
+
+  ```java
+  @Configuration
+  public class SerializedConfig {
+  	@Bean
+  	public MessageConverter messageConverter() {
+  		return new Jackson2JsonMessageConverter();
+  	}
+  }
+  ```
+
+**测试**：
+
+上面5种消息模型总共简单分为3种方式实现的。
+
+​	<1与2是使用事先准备好的消息队列，3是使用config类将消息队列与交换机绑定方式创建消息队列的，4与5是使用注解方式实现交换机与消息队列>
+
+​	由于我们消息一旦发送就会被消费者消费掉，所以不能使用第三种方式实现测试用例，会被立刻消费掉，在MQ管理平台中就看不到了。
+
+步骤：
+
+- 在消费者的config类中创建一个test用的消息队列
+
+  ```java
+  @Bean
+  public Queue testQueue() {
+  	return new Queue("object.queue");
+  }
+  ```
+
+- 消息发送
+
+  ```java
+  @Test
+  public void testObject() {
+  	// 消息队列名称
+  	String queueName = "object.queue";
+  	// 消息
+  	Map<String, Object> message = new HashMap<>();
+  	message.put("name", "屈刘杰");
+  	message.put("age", 23);
+  	// 转换并发送
+  	rabbitTemplate.convertAndSend(queueName, message);
+  }
+  ```
+
+- 在MQ控制平台查看存入消息队列中的map对象
+
+  我们发现：存入消息类型不是HashMap类型。
+
+  simple.queue消息队列中存入的一条消息是一串乱码。
+
+  消息内容类型‘content_type:application/x-java-serialized-object’ <序列化后对象>。
+
+- 测试消费者是否可以用map对象
+
+  ```java
+  @RabbitListener(queues = "object.queue")
+  public void listenerTestQueue(Map msg) {
+  	System.out.println(msg.get("name"));			// 屈刘杰
+  	System.out.println("消费者接收到fanout.queue1的消息：【" + msg.toString() + "】");
+  	// 消费者接收到fanout.queue1的消息：【{name=屈刘杰, age=23}】
+  }
+  ```
+
+  可以发现，消费者使用Map类型接收正常。
 
 
 
-
-
+### 十一、Elasticsearch
 
 
 
